@@ -1,0 +1,30 @@
+
+> rental-system-frontend@1.0.0 build
+> vite build
+
+[36mvite v7.2.4 [32mbuilding client environment for production...[36m[39m
+[32m✓[39m 0 modules transformed.
+[31m✗[39m Build failed in 35ms
+[31merror during build:
+[31m[vite:build-html] Transform failed with 1 error:
+C:/Users/Sh4aN/Downloads/rental-system-features-update (1)/frontend/src/main.jsx:9:17: ERROR: Unterminated regular expression[31m
+file: [36mC:/Users/Sh4aN/Downloads/rental-system-features-update (1)/frontend/src/main.jsx:9:17 (C:/Users/Sh4aN/Downloads/rental-system-features-update (1)/frontend/index.html)[31m
+[33m
+[33mUnterminated regular expression[33m
+7  |      
+8  |          <App />
+9  |      </StrictMode>
+   |                   ^
+10 |  );
+11 |  
+[31m
+    at failureErrorWithLog (C:\Users\Sh4aN\Downloads\rental-system-features-update (1)\frontend\node_modules\esbuild\lib\main.js:1467:15)
+    at C:\Users\Sh4aN\Downloads\rental-system-features-update (1)\frontend\node_modules\esbuild\lib\main.js:736:50
+    at responseCallbacks.<computed> (C:\Users\Sh4aN\Downloads\rental-system-features-update (1)\frontend\node_modules\esbuild\lib\main.js:603:9)
+    at handleIncomingPacket (C:\Users\Sh4aN\Downloads\rental-system-features-update (1)\frontend\node_modules\esbuild\lib\main.js:658:12)
+    at Socket.readFromStdout (C:\Users\Sh4aN\Downloads\rental-system-features-update (1)\frontend\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)[39m
