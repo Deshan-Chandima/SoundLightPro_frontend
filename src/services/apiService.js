@@ -79,4 +79,8 @@ export const api = {
 
     // Auth
     login: (credentials) => request('/login', { method: 'POST', body: JSON.stringify(credentials) }),
+
+    // Backup
+    getBackup: () => request('/backup/export'),
+    restoreBackup: (data) => request('/backup/import', { method: 'POST', body: JSON.stringify(data) }),
 };

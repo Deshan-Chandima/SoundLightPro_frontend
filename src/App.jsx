@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 // Layout
 import MainLayout from './layouts/MainLayout';
+import ToastProvider from './components/Toast';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -279,17 +280,19 @@ export function App() {
     }
 
     return (
-        <MainLayout
-            activeView={activeView}
-            setActiveView={setActiveView}
-            currentUser={currentUser}
-            handleLogout={handleLogout}
-            settings={settings}
-            sqlMode={sqlMode}
-            isSqlOnline={isSqlOnline}
-        >
-            {renderView()}
-        </MainLayout>
+        <ToastProvider>
+            <MainLayout
+                activeView={activeView}
+                setActiveView={setActiveView}
+                currentUser={currentUser}
+                handleLogout={handleLogout}
+                settings={settings}
+                sqlMode={sqlMode}
+                isSqlOnline={isSqlOnline}
+            >
+                {renderView()}
+            </MainLayout>
+        </ToastProvider>
     );
 }
 

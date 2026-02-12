@@ -1,34 +1,70 @@
-import React, { useRef } from 'react';
-import { Download, Upload, AlertTriangle, CheckCircle2, Database } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Download, Upload, AlertTriangle, CheckCircle2, Database, Server, HardDrive } from 'lucide-react';
+import { api } from '../services/apiService';
 
 const BackupManager = () => {
   const fileInputRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: '' }
 
-  const handleBackup = () => {
-    const data = {
-      equipment: JSON.parse(localStorage.getItem('rental_equipment') || '[]'),
-      customers: JSON.parse(localStorage.getItem('rental_customers') || '[]'),
-      orders: JSON.parse(localStorage.getItem('rental_orders') || '[]'),
-      expenses: JSON.parse(localStorage.getItem('rental_expenses') || '[]'),
-      users: JSON.parse(localStorage.getItem('rental_users') || '[]'),
-      settings: JSON.parse(localStorage.getItem('rental_settings') || 'null'),
-      categories: JSON.parse(localStorage.getItem('rental_categories') || '[]'),
-      version: '1.0.0',
-      timestamp: new Date().toISOString()
-    };
+  // Check if SQL mode is active
+  const isSqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
 
+  const showStatus = (type, message) => {
+    setStatus({ type, message });
+    setTimeout(() => setStatus(null), 5000);
+  };
+
+  const downloadFile = (data, filename) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `rental_system_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  const handleRestore = (event) => {
+  const handleBackup = async () => {
+    setLoading(true);
+    setStatus(null);
+
+    try {
+      let data;
+      if (isSqlMode) {
+        // Fetch from Backend
+        data = await api.getBackup();
+      } else {
+        // Fetch from Local Storage
+        data = {
+          equipment: JSON.parse(localStorage.getItem('rental_equipment') || '[]'),
+          customers: JSON.parse(localStorage.getItem('rental_customers') || '[]'),
+          orders: JSON.parse(localStorage.getItem('rental_orders') || '[]'),
+          expenses: JSON.parse(localStorage.getItem('rental_expenses') || '[]'),
+          users: JSON.parse(localStorage.getItem('rental_users') || '[]'),
+          settings: JSON.parse(localStorage.getItem('rental_settings') || 'null'),
+          categories: JSON.parse(localStorage.getItem('rental_categories') || '[]'),
+          version: '1.0.0',
+          timestamp: new Date().toISOString(),
+          source: 'local_storage'
+        };
+      }
+
+      const filename = `rental_system_backup_${isSqlMode ? 'sql' : 'local'}_${new Date().toISOString().slice(0, 10)}.json`;
+      downloadFile(data, filename);
+      showStatus('success', 'Backup created successfully!');
+
+    } catch (error) {
+      console.error('Backup failed:', error);
+      showStatus('error', 'Failed to create backup: ' + (error.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestore = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -37,24 +73,39 @@ const BackupManager = () => {
       return;
     }
 
+    setLoading(true);
+    setStatus(null);
+
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target?.result);
 
-        if (data.equipment) localStorage.setItem('rental_equipment', JSON.stringify(data.equipment));
-        if (data.customers) localStorage.setItem('rental_customers', JSON.stringify(data.customers));
-        if (data.orders) localStorage.setItem('rental_orders', JSON.stringify(data.orders));
-        if (data.expenses) localStorage.setItem('rental_expenses', JSON.stringify(data.expenses));
-        if (data.users) localStorage.setItem('rental_users', JSON.stringify(data.users));
-        if (data.settings) localStorage.setItem('rental_settings', JSON.stringify(data.settings));
-        if (data.categories) localStorage.setItem('rental_categories', JSON.stringify(data.categories));
+        if (isSqlMode) {
+          // Restore to Backend
+          await api.restoreBackup(data);
+          alert('Data restored successfully to SQL Database! The application will now reload.');
+          window.location.reload();
+        } else {
+          // Restore to Local Storage
+          if (data.equipment) localStorage.setItem('rental_equipment', JSON.stringify(data.equipment));
+          if (data.customers) localStorage.setItem('rental_customers', JSON.stringify(data.customers));
+          if (data.orders) localStorage.setItem('rental_orders', JSON.stringify(data.orders));
+          if (data.expenses) localStorage.setItem('rental_expenses', JSON.stringify(data.expenses));
+          if (data.users) localStorage.setItem('rental_users', JSON.stringify(data.users));
+          if (data.settings) localStorage.setItem('rental_settings', JSON.stringify(data.settings));
+          if (data.categories) localStorage.setItem('rental_categories', JSON.stringify(data.categories));
 
-        alert('Data restored successfully! The application will now reload.');
-        window.location.reload();
+          alert('Data restored successfully to Local Storage! The application will now reload.');
+          window.location.reload();
+        }
       } catch (error) {
-        alert('Error restoring data. Please make sure the file is a valid backup JSON.');
-        console.error(error);
+        console.error('Restore failed:', error);
+        showStatus('error', 'Error restoring data: ' + (error.message || 'Invalid file format'));
+        alert('Error restoring data. Please check the console or ensure the file is valid.');
+      } finally {
+        setLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     };
     reader.readAsText(file);
@@ -67,7 +118,17 @@ const BackupManager = () => {
           <h1 className="text-2xl font-bold text-slate-900">Backup & Restore</h1>
           <p className="text-slate-500">Manage your system data and create secure backups.</p>
         </div>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-600">
+          {isSqlMode ? <Server size={14} className="text-blue-500" /> : <HardDrive size={14} className="text-orange-500" />}
+          Current Mode: {isSqlMode ? 'SQL Database' : 'Local Storage'}
+        </div>
       </div>
+
+      {status && (
+        <div className={`p-4 rounded-lg border ${status.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          {status.message}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Backup Section */}
@@ -78,14 +139,15 @@ const BackupManager = () => {
             </div>
             <h2 className="text-lg font-semibold text-slate-900 mb-2">Create Backup</h2>
             <p className="text-slate-500 text-sm mb-6">
-              Download a full snapshot of your current system data, including inventory, customers, orders, and settings.
+              Download a full snapshot of your current system data, including inventory, customers, orders, users, and settings.
             </p>
             <button
               onClick={handleBackup}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              disabled={loading}
+              className={`w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               <Download size={20} />
-              Download Backup File
+              {loading ? 'Processing...' : 'Download Backup File'}
             </button>
           </div>
           <div className="bg-slate-50 p-4 border-t border-slate-200">
@@ -117,10 +179,11 @@ const BackupManager = () => {
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-3 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+              disabled={loading}
+              className={`w-full flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-3 rounded-lg font-medium hover:bg-slate-50 transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               <Upload size={20} />
-              Upload & Restore
+              {loading ? 'Processing...' : 'Upload & Restore'}
             </button>
           </div>
           <div className="bg-orange-50 p-4 border-t border-orange-100">
@@ -157,4 +220,3 @@ const BackupManager = () => {
 };
 
 export default BackupManager;
-

@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Package, Tag, Hash, DollarSign, List, X } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { useToast } from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 const InventoryManager = ({ equipment, setEquipment, categories, setCategories, settings }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const toast = useToast();
+
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    isDestructive: true
+  });
 
   const [newCategoryName, setNewCategoryName] = useState('');
 
@@ -24,7 +35,7 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
     e.preventDefault();
     if (!newCategoryName.trim()) return;
     if (categories.some(c => c.name.toLowerCase() === newCategoryName.toLowerCase().trim())) {
-      alert('Category already exists');
+      toast.error('Category with this name already exists');
       return;
     }
     const newCat = {
@@ -39,35 +50,47 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
         await api.saveCategory(newCat);
       } catch (error) {
         console.error("Failed to save category:", error);
+        toast.error('Failed to save category to database');
       }
     }
 
     setCategories([...categories, newCat]);
     setNewCategoryName('');
+    toast.success('Category added successfully');
   };
 
-  const handleDeleteCategory = async (id) => {
+  const handleDeleteCategory = (id) => {
     const catToDelete = categories.find(c => c.id === id);
     if (!catToDelete) return;
 
     const isUsed = equipment.some(e => e.category === catToDelete.name);
     if (isUsed) {
-      alert('Cannot delete this category  is currently assigned to equipment items.');
+      toast.warning('Cannot delete this category because it is currently assigned to equipment items.');
       return;
     }
 
-    if (confirm('Delete this category?')) {
-      const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
-      if (sqlMode) {
-        try {
-          const { api } = await import('../services/apiService');
-          await api.deleteCategory(id);
-        } catch (error) {
-          console.error("Failed to delete category:", error);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Category',
+      message: `Are you sure you want to delete "${catToDelete.name}"? This action cannot be undone.`,
+      confirmText: 'Delete Category',
+      isDestructive: true,
+      onConfirm: async () => {
+        const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
+        if (sqlMode) {
+          try {
+            const { api } = await import('../services/apiService');
+            await api.deleteCategory(id);
+          } catch (error) {
+            console.error("Failed to delete category:", error);
+            toast.error('Failed to delete category');
+            return;
+          }
         }
+        setCategories(categories.filter(c => c.id !== id));
+        toast.success('Category deleted successfully');
       }
-      setCategories(categories.filter(c => c.id !== id));
-    }
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -82,6 +105,7 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
           await api.updateEquipment(updatedItem);
         }
         setEquipment(prev => prev.map(item => item.id === editingItem.id ? updatedItem : item));
+        toast.success('Equipment updated successfully');
       } else {
         const newItem = {
           ...formData,
@@ -93,14 +117,14 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
           await api.saveEquipment(newItem);
         }
         setEquipment(prev => [...prev, newItem]);
+        toast.success('Equipment added successfully');
       }
       setShowForm(false);
       setEditingItem(null);
       setFormData({ name: '', category: categories.length > 0 ? categories[0].name : '', pricePerDay: 0, value: 0, totalQuantity: 0, status: 'Reusable', description: '' });
     } catch (error) {
       console.error("Failed to save equipment:", error);
-      alert("Error saving to database. Changes saved locally only.");
-      // Fallback: still update local state if needed or show error
+      toast.error("Error saving to database. Changes saved locally only.");
     }
   };
 
@@ -110,19 +134,29 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (confirm('Are you sure you want to delete this item?')) {
-      const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
-      if (sqlMode) {
-        try {
-          const { api } = await import('../services/apiService');
-          await api.deleteEquipment(id);
-        } catch (error) {
-          console.error("Failed to delete equipment:", error);
+  const handleDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Equipment',
+      message: 'Are you sure you want to delete this equipment item? This action cannot be undone.',
+      confirmText: 'Delete Item',
+      isDestructive: true,
+      onConfirm: async () => {
+        const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
+        if (sqlMode) {
+          try {
+            const { api } = await import('../services/apiService');
+            await api.deleteEquipment(id);
+          } catch (error) {
+            console.error("Failed to delete equipment:", error);
+            toast.error('Failed to delete equipment');
+            return;
+          }
         }
+        setEquipment(prev => prev.filter(item => item.id !== id));
+        toast.success('Equipment deleted successfully');
       }
-      setEquipment(prev => prev.filter(item => item.id !== id));
-    }
+    });
   };
 
   const filteredEquipment = equipment.filter(item =>
@@ -265,6 +299,20 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Damaged Qty</label>
+                  <div className="relative">
+                    <Hash className="absolute left-3 top-2.5 w-4 h-4 text-red-400" />
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                      value={formData.damagedQuantity || 0}
+                      onChange={e => setFormData({ ...formData, damagedQuantity: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                   <textarea
@@ -290,63 +338,65 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </div >
+        </div >
       )}
 
-      {showCategoryManager && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900">Manage Categories</h2>
-              <button onClick={() => setShowCategoryManager(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <form onSubmit={handleAddCategory} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="New Category Name"
-                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={newCategoryName}
-                  onChange={e => setNewCategoryName(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors"
-                >
-                  Add
+      {
+        showCategoryManager && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-900">Manage Categories</h2>
+                <button onClick={() => setShowCategoryManager(false)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
                 </button>
-              </form>
+              </div>
+              <div className="p-6 space-y-4">
+                <form onSubmit={handleAddCategory} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="New Category Name"
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={newCategoryName}
+                    onChange={e => setNewCategoryName(e.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors"
+                  >
+                    Add
+                  </button>
+                </form>
 
-              <div className="max-h-64 overflow-y-auto space-y-2">
-                {categories.length > 0 ? categories.map(cat => (
-                  <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <span className="font-medium text-slate-900">{cat.name}</span>
-                    <button
-                      onClick={() => handleDeleteCategory(cat.id)}
-                      className="p-1.5 hover:bg-red-50 text-red-500 rounded-md transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )) : (
-                  <p className="text-center text-slate-400 py-4 italic">No categories yet.</p>
-                )}
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {categories.length > 0 ? categories.map(cat => (
+                    <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <span className="font-medium text-slate-900">{cat.name}</span>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id)}
+                        className="p-1.5 hover:bg-red-50 text-red-500 rounded-md transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )) : (
+                    <p className="text-center text-slate-400 py-4 italic">No categories yet.</p>
+                  )}
+                </div>
+              </div>
+              <div className="p-6 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={() => setShowCategoryManager(false)}
+                  className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold"
+                >
+                  Close
+                </button>
               </div>
             </div>
-            <div className="p-6 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={() => setShowCategoryManager(false)}
-                className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold"
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-left min-w-[800px]">
@@ -388,9 +438,19 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
                   {settings.currency}{item.value}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm">
-                    <span className="font-semibold text-slate-900">{item.availableQuantity}</span>
-                    <span className="text-slate-400"> / {item.totalQuantity}</span>
+                  <div className="flex flex-col text-xs gap-1">
+                    <div className="font-bold text-slate-500">
+                      {item.totalQuantity - (item.damagedQuantity || 0)} <span className="text-[10px] font-normal uppercase tracking-wider">Rentable Total</span>
+                    </div>
+                    <div className="font-bold text-indigo-600">
+                      {item.availableQuantity} <span className="text-[10px] font-normal uppercase tracking-wider">Available in Shop</span>
+                    </div>
+                    {(item.damagedQuantity > 0) && (
+                      <div className="font-bold text-red-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block mr-1"></span>
+                        {item.damagedQuantity} <span className="text-[10px] font-normal uppercase tracking-wider">Damaged Units</span>
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -433,6 +493,15 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
           </tbody>
         </table>
       </div>
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        isDestructive={confirmModal.isDestructive}
+      />
     </div>
   );
 };
