@@ -12,7 +12,8 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
     try {
       console.log('Generating PDF for order:', order);
       console.log('Settings:', settings);
-      const doc = generateInvoicePDF(order, settings);
+      console.log('Customer:', customer);
+      const doc = generateInvoicePDF(order, settings, customer);
       console.log('PDF Generated, saving...');
       doc.save(`Invoice_${order.id || 'draft'}.pdf`);
       console.log('Save called');
@@ -24,7 +25,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
 
   const handleDownloadTicket = () => {
     try {
-      const doc = generateTicketPDF(order, settings);
+      const doc = generateTicketPDF(order, settings, customer);
       doc.save(`Ticket_${order.id || 'draft'}.pdf`);
     } catch (error) {
       console.error('Error downloading Ticket:', error);
@@ -134,6 +135,12 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
             {/* If we have customer ID in the object, display it */}
             {order.customerId && (
               <div className="text-xs text-slate-400 mt-2 uppercase tracking-wide">ID: {order.customerId}</div>
+            )}
+            {customer && (
+              <div className="text-sm text-slate-500 mt-1">
+                {customer.phone && <div>{customer.phone}</div>}
+                {customer.email && <div>{customer.email}</div>}
+              </div>
             )}
           </div>
 
