@@ -2,14 +2,14 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
-export const generateInvoicePDF = (order, settings, customer) => {
+export const generateInvoicePDF = (order, settings) => {
     try {
         const doc = new jsPDF();
         const safeSettings = settings || {};
         const currency = safeSettings.currency || 'AED';
         const companyName = safeSettings.companyName || 'Company Name';
 
-        // ... Header code ...
+        // Header
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, 210, 40, 'F');
         doc.setDrawColor(241, 245, 249);
@@ -54,19 +54,6 @@ export const generateInvoicePDF = (order, settings, customer) => {
             doc.text(splitAddress, 14, currentY);
             currentY += (splitAddress.length * 5);
         }
-
-        // Add Customer Contact if available
-        if (customer) {
-            if (customer.phone) {
-                doc.text(customer.phone, 14, currentY);
-                currentY += 5;
-            }
-            if (customer.email) {
-                doc.text(customer.email, 14, currentY);
-                currentY += 5;
-            }
-        }
-
         if (order.customerTrn) {
             doc.setFont('helvetica', 'bold');
             doc.text(`TRN: ${order.customerTrn}`, 14, currentY);
@@ -209,13 +196,13 @@ export const generateInvoicePDF = (order, settings, customer) => {
     }
 };
 
-export const generateTicketPDF = (order, settings, customer) => {
+export const generateTicketPDF = (order, settings) => {
     try {
         const doc = new jsPDF();
         const safeSettings = settings || {};
         const companyName = safeSettings.companyName || 'Company Name';
 
-        // ... Header code ...
+        // Header
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, 210, 40, 'F');
         doc.setDrawColor(241, 245, 249);
@@ -237,11 +224,11 @@ export const generateTicketPDF = (order, settings, customer) => {
         doc.setFont('helvetica', 'bold');
         doc.text(companyName.toUpperCase(), 140, 15);
 
-        // Customer Details
+        // Delivery To
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('CUSTOMER DETAILS:', 14, 55); // Changed from DELIVER TO
+        doc.text('DELIVER TO:', 14, 55);
         doc.setFont('helvetica', 'normal');
         doc.text(order.customerName, 14, 60);
         let currentY = 65;
@@ -251,17 +238,9 @@ export const generateTicketPDF = (order, settings, customer) => {
             currentY += (splitAddress.length * 5);
         }
 
-        doc.setFontSize(9);
-        // Use customer object for contact details
-        const contactPhone = customer?.phone || order.customerPhone || 'N/A';
-        doc.text(`Contact: ${contactPhone}`, 14, currentY);
-        currentY += 5;
-
-        if (customer?.email) {
-            doc.text(`Email: ${customer.email}`, 14, currentY);
-            currentY += 5;
-        }
-        currentY += 5;
+        doc.setFontSize(8);
+        doc.text(`Customer Contact: ${order.customerPhone || 'N/A'}`, 14, currentY);
+        currentY += 10;
 
         const tableStartY = Math.max(currentY + 10, 80);
 
@@ -338,8 +317,8 @@ export const generateTicketPDF = (order, settings, customer) => {
     }
 };
 
-export const openPDFInNewWindow = (order, settings, customer) => {
-    const doc = generateInvoicePDF(order, settings, customer);
+export const openPDFInNewWindow = (order, settings) => {
+    const doc = generateInvoicePDF(order, settings);
     const string = doc.output('bloburl');
     window.open(string, '_blank');
 };

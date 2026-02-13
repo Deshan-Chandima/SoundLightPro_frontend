@@ -7,9 +7,12 @@ export const isSqlMode = () => SQL_MODE;
 async function request(endpoint, options = {}) {
     const token = localStorage.getItem('rental_auth_token');
     const headers = {
-        'Content-Type': 'application/json',
         ...options.headers,
     };
+
+    if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -83,4 +86,7 @@ export const api = {
     // Backup
     getBackup: () => request('/backup/export'),
     restoreBackup: (data) => request('/backup/import', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Email
+    sendInvoice: (formData) => request('/email/send-invoice', { method: 'POST', body: formData }),
 };

@@ -297,6 +297,73 @@ CREATE TABLE settings (
             </div>
           </div>
 
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-6">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <h2 className="font-bold text-slate-900 flex items-center gap-2">
+                <Mail className="w-5 h-5 text-indigo-600" />
+                Email Server (SMTP) Settings
+              </h2>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">SMTP Host</label>
+                <input
+                  type="text"
+                  placeholder="smtp.example.com"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={formData.smtpHost || ''}
+                  onChange={e => setFormData({ ...formData, smtpHost: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">SMTP Port</label>
+                <input
+                  type="number"
+                  placeholder="587"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={formData.smtpPort || ''}
+                  onChange={e => setFormData({ ...formData, smtpPort: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">SMTP Username</label>
+                <input
+                  type="text"
+                  placeholder="user@example.com"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={formData.smtpUser || ''}
+                  onChange={e => setFormData({ ...formData, smtpUser: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">SMTP Password</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={formData.smtpPass || ''}
+                  onChange={e => setFormData({ ...formData, smtpPass: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-4 md:col-span-2">
+                <label className="block text-sm font-semibold text-slate-700">From Email Address</label>
+                <input
+                  type="email"
+                  placeholder="info@example.com"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={formData.smtpFrom || ''}
+                  onChange={e => setFormData({ ...formData, smtpFrom: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+
 
 
           <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
