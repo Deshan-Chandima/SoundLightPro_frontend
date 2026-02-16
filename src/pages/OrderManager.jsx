@@ -15,7 +15,7 @@ const OrderManager = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('active');
 
-    // Form State
+
     const [selectedCustomerId, setSelectedCustomerId] = useState('');
     const [rentalItems, setRentalItems] = useState([]);
     const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -24,17 +24,17 @@ const OrderManager = ({
     const [paymentMethod, setPaymentMethod] = useState('Cash');
     const [notes, setNotes] = useState('');
 
-    // Discount State
+
     const [discountType, setDiscountType] = useState('percentage');
     const [discountValue, setDiscountValue] = useState(0);
 
-    // Return Processing State
+
     const [processingReturn, setProcessingReturn] = useState(null);
     const [returnCounts, setReturnCounts] = useState({});
     const [returnReplacementCosts, setReturnReplacementCosts] = useState({});
     const [returnSuccess, setReturnSuccess] = useState(null);
 
-    // Update Order State
+
     const [updatingOrder, setUpdatingOrder] = useState(null);
     const [updateFormData, setUpdateFormData] = useState({
         additionalPayment: 0,
@@ -208,19 +208,19 @@ const OrderManager = ({
         const initialCounts = {};
         const initialCosts = {};
         order.items.forEach(item => {
-            // Calculate remaining quantity (not yet returned)
+
             const alreadyReturnedGood = Number(item.quantityReturnedGood) || 0;
             const alreadyReturnedDamaged = Number(item.quantityReturnedDamaged) || 0;
             const alreadyReturned = alreadyReturnedGood + alreadyReturnedDamaged;
             const remaining = Math.max(0, item.quantity - alreadyReturned);
             initialCounts[item.equipmentId] = { good: remaining, damaged: 0, remaining };
-            // Pre-fill replacement cost with item value if available, or default to 0
+
             initialCosts[item.equipmentId] = 0;
         });
         setReturnCounts(initialCounts);
         setReturnReplacementCosts(initialCosts);
 
-        // Auto-calculate late fee
+
         const today = new Date();
         const endDate = parseISO(order.endDate);
         const daysOverdue = differenceInDays(today, endDate);
@@ -243,22 +243,22 @@ const OrderManager = ({
         const startDate = parseISO(processingReturn.startDate);
         const dueDate = parseISO(processingReturn.endDate);
 
-        // Calculate actual duration vs original duration
+
         const originalDuration = Math.max(1, differenceInDays(dueDate, startDate));
         const actualDuration = Math.max(1, differenceInDays(today, startDate));
 
-        // Recalculate totals if returned early
+
         let subtotalAmount = processingReturn.subtotalAmount;
         let totalAmount = processingReturn.totalAmount;
         let taxAmount = processingReturn.taxAmount;
 
         if (actualDuration < originalDuration) {
-            // Recalculate subtotal for the shorter duration
+
             subtotalAmount = processingReturn.items.reduce((sum, item) =>
                 sum + (item.pricePerUnit * item.quantity * actualDuration), 0
             );
 
-            // Recalculate total with original discount
+
             let totalAfterDiscount = subtotalAmount;
             if (processingReturn.discountType === 'percentage') {
                 totalAfterDiscount = subtotalAmount - (subtotalAmount * processingReturn.discountValue / 100);
@@ -266,7 +266,7 @@ const OrderManager = ({
                 totalAfterDiscount = Math.max(0, subtotalAmount - processingReturn.discountValue);
             }
 
-            // Recalculate VAT
+
             taxAmount = totalAfterDiscount * ((settings.taxPercentage || 5) / 100);
             totalAmount = totalAfterDiscount + taxAmount;
         }
@@ -276,7 +276,7 @@ const OrderManager = ({
             const cost = returnReplacementCosts[item.equipmentId] || 0;
             const counts = returnCounts[item.equipmentId] || { good: 0, damaged: 0 };
             damageFeeTotal += cost;
-            // Accumulate with previous returns
+
             const prevGood = Number(item.quantityReturnedGood) || 0;
             const prevDamaged = Number(item.quantityReturnedDamaged) || 0;
             return {
@@ -287,7 +287,7 @@ const OrderManager = ({
             };
         });
 
-        // Check if all items are fully returned
+
         const allReturned = updatedItems.every(item => {
             const totalReturned = (item.quantityReturnedGood || 0) + (item.quantityReturnedDamaged || 0);
             return totalReturned >= item.quantity;
@@ -317,7 +317,7 @@ const OrderManager = ({
                     return prev.map(o => o.id === processingReturn.id ? updatedOrder : o);
                 });
 
-                // Restore equipment stock and update condition
+
                 const stockUpdatePromises = [];
                 const updatedEquipment = equipment.map(eq => {
                     const rentalItem = processingReturn.items.find(ri => ri.equipmentId === eq.id);
@@ -343,7 +343,6 @@ const OrderManager = ({
                         };
                         stockUpdatePromises.push(
                             api.updateEquipment(updated)
-                                .then(() => console.log(`Stock restored for ${eq.name}: +${quantityToAdd}`))
                                 .catch(err => console.error(`Stock restore FAILED for ${eq.name}:`, err))
                         );
                         return updated;
@@ -399,9 +398,9 @@ const OrderManager = ({
     };
 
     const handleOpenUpdateOrder = (order) => {
-        console.log("Opening update for:", order);
+
         setUpdatingOrder(order);
-        // Ensure dates are formatted for input type="date"
+
         let sDate = order.startDate;
         let eDate = order.endDate;
         try {
@@ -413,12 +412,12 @@ const OrderManager = ({
 
         setUpdateFormData({
             additionalPayment: 0,
-            lateFee: order.lateFee || 0,
-            damageFee: order.damageFee || 0,
+            lateFee: Number(order.lateFee) || 0,
+            damageFee: Number(order.damageFee) || 0,
             notes: order.notes || '',
             startDate: sDate,
             endDate: eDate,
-            items: order.items.map(item => ({ ...item })) // Deep copy items to avoid mutating original order immediately
+            items: order.items.map(item => ({ ...item }))
         });
     };
 
@@ -427,24 +426,27 @@ const OrderManager = ({
         if (!updatingOrder) return;
 
         try {
-            console.log("Submitting update for:", updatingOrder.id);
 
-            // Calculate new subtotal and total based on updated items and dates
             const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)));
-            const subtotalAmount = updateFormData.items.reduce((sum, item) => sum + (item.pricePerUnit * item.quantity * days), 0);
+            const subtotalAmount = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0) * days), 0);
 
+            const discountValue = Number(updatingOrder.discountValue) || 0;
             let totalAfterDiscount = subtotalAmount;
             if (updatingOrder.discountType === 'percentage') {
-                totalAfterDiscount = subtotalAmount - (subtotalAmount * updatingOrder.discountValue / 100);
+                totalAfterDiscount = subtotalAmount - (subtotalAmount * discountValue / 100);
             } else {
-                totalAfterDiscount = Math.max(0, subtotalAmount - updatingOrder.discountValue);
+                totalAfterDiscount = Math.max(0, subtotalAmount - discountValue);
             }
 
-            const taxAmount = totalAfterDiscount * ((settings.taxPercentage || 5) / 100);
+            const taxRate = (Number(settings.taxPercentage) || 5) / 100;
+            const taxAmount = totalAfterDiscount * taxRate;
             const totalAmount = totalAfterDiscount + taxAmount;
 
-            const newPaidAmount = updatingOrder.paidAmount + updateFormData.additionalPayment;
-            const totalWithFees = totalAmount + updateFormData.lateFee + updateFormData.damageFee;
+            const additionalPayment = Number(updateFormData.additionalPayment) || 0;
+            const lateFee = Number(updateFormData.lateFee) || 0;
+            const damageFee = Number(updateFormData.damageFee) || 0;
+            const newPaidAmount = (Number(updatingOrder.paidAmount) || 0) + additionalPayment;
+            const totalWithFees = totalAmount + lateFee + damageFee;
 
             const updatedOrder = {
                 ...updatingOrder,
@@ -455,67 +457,43 @@ const OrderManager = ({
                 taxAmount,
                 totalAmount,
                 paidAmount: newPaidAmount,
-                lateFee: updateFormData.lateFee,
-                damageFee: updateFormData.damageFee,
+                lateFee,
+                damageFee,
                 notes: updateFormData.notes,
                 balanceAmount: totalWithFees - newPaidAmount
             };
 
-            // Handle stock changes if status is Active or Confirmed
-            // We need to revert old stock and apply new stock
-            if (updatingOrder.status === 'Active' || updatingOrder.status === 'Confirmed') {
+
+            if (updatingOrder.status === 'Active') {
                 const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
                 const { api } = sqlMode ? await import('../services/apiService') : { api: null };
 
-                // 1. Calculate check for overall stock availability first
-                for (const newItem of updateFormData.items) {
-                    const originalItem = updatingOrder.items.find(pi => pi.equipmentId === newItem.equipmentId);
-                    const originalQty = originalItem ? originalItem.quantity : 0;
-                    const additionalNeeded = newItem.quantity - originalQty;
-
-                    if (additionalNeeded > 0) {
-                        const eqItem = equipment.find(e => e.id === newItem.equipmentId);
-                        if (!eqItem || eqItem.availableQuantity < additionalNeeded) {
-                            alert(`Cannot update order: Insufficient stock for ${newItem.name}. Need ${additionalNeeded} more, but only ${eqItem ? eqItem.availableQuantity : 0} available.`);
-                            return; // Stop the entire update process
-                        }
-                    }
-                }
-
                 const updatedEquipment = [...equipment];
 
-                // 2. Revert Old Stock (Add back what was taken)
+
                 updatingOrder.items.forEach(oldItem => {
                     const eqIdx = updatedEquipment.findIndex(eq => eq.id === oldItem.equipmentId);
                     if (eqIdx !== -1) {
                         updatedEquipment[eqIdx] = {
                             ...updatedEquipment[eqIdx],
-                            availableQuantity: updatedEquipment[eqIdx].availableQuantity + oldItem.quantity
+                            availableQuantity: (Number(updatedEquipment[eqIdx].availableQuantity) || 0) + (Number(oldItem.quantity) || 0)
                         };
                     }
                 });
 
-                // 3. Apply New Stock (Deduct new quantities)
-                for (const newItem of updateFormData.items) {
+
+                updateFormData.items.forEach(newItem => {
                     const eqIdx = updatedEquipment.findIndex(eq => eq.id === newItem.equipmentId);
                     if (eqIdx !== -1) {
-                        // Strict check should have passed above, but double check logic
-                        if (updatedEquipment[eqIdx].availableQuantity < newItem.quantity) {
-                            // This should technically not be reached due to pre-check, but acts as a safety net
-                            alert(`Critical Error: Stock mismatch during processing for ${newItem.name}.`);
-                            return;
-                        }
-
                         updatedEquipment[eqIdx] = {
                             ...updatedEquipment[eqIdx],
-                            availableQuantity: updatedEquipment[eqIdx].availableQuantity - newItem.quantity
+                            availableQuantity: (Number(updatedEquipment[eqIdx].availableQuantity) || 0) - (Number(newItem.quantity) || 0)
                         };
-
                         if (sqlMode && api) {
-                            await api.updateEquipment(updatedEquipment[eqIdx]).catch(err => console.error("Stock update failed:", err));
+                            api.updateEquipment(updatedEquipment[eqIdx]).catch(err => console.error("Stock update failed:", err));
                         }
                     }
-                }
+                });
 
                 setEquipment(updatedEquipment);
             }
@@ -524,17 +502,13 @@ const OrderManager = ({
             if (sqlMode) {
                 const { api } = await import('../services/apiService');
                 await api.updateOrder(updatedOrder);
-                setOrders(prev => prev.map(o => o.id === updatingOrder.id ? updatedOrder : o));
-            } else {
-                setOrders(prev => prev.map(o => o.id === updatingOrder.id ? updatedOrder : o));
             }
 
+            setOrders(prev => prev.map(o => o.id === updatingOrder.id ? updatedOrder : o));
             setUpdatingOrder(null);
-            console.log("Order updated successfully");
-
         } catch (error) {
             console.error("Failed to update order:", error);
-            alert("Error: Failed to save updates. Please check console.");
+            alert("Error: Failed to save updates. " + error.message);
         }
     };
 
@@ -580,7 +554,7 @@ const OrderManager = ({
             </div>
 
             <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-4">
-                {/* Tabs */}
+
                 <div className="flex gap-2 border-b border-slate-100 pb-2">
                     <button
                         onClick={() => setActiveTab('active')}
@@ -614,7 +588,7 @@ const OrderManager = ({
                 </div>
             </div>
 
-            {/* Order List */}
+
             <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden overflow-x-auto">
                 <table className="w-full text-left min-w-[800px]">
                     <thead>
@@ -672,7 +646,7 @@ const OrderManager = ({
                                                 <CheckCircle className="w-5 h-5" />
                                             </button>
                                         )}
-                                        {/* Edit button removed if paid off (balance <= 0) */}
+
                                         {order.balanceAmount > 0 && (
                                             <button
                                                 onClick={() => handleOpenUpdateOrder(order)}
@@ -718,7 +692,7 @@ const OrderManager = ({
                 </table>
             </div>
 
-            {/* New Order Modal */}
+
             {showForm && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -730,7 +704,7 @@ const OrderManager = ({
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            {/* Left Column: Details */}
+
                             <div className="lg:col-span-1 space-y-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Customer</label>
@@ -830,7 +804,7 @@ const OrderManager = ({
                                 </div>
                             </div>
 
-                            {/* Right Column: Items */}
+
                             <div className="lg:col-span-2 space-y-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Add Items to Order</label>
@@ -950,7 +924,7 @@ const OrderManager = ({
                 </div>
             )}
 
-            {/* Return Processing Modal */}
+
             {processingReturn && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -1094,155 +1068,303 @@ const OrderManager = ({
             )
             }
 
-            {/* Update Order Modal */}
-            {
-                updatingOrder && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                                <h2 className="text-xl font-bold text-slate-900">Update Order {updatingOrder.id}</h2>
-                                <button onClick={() => setUpdatingOrder(null)} className="text-slate-400 hover:text-slate-600">
-                                    <X className="w-6 h-6" />
-                                </button>
+
+            {updatingOrder && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh]">
+                        <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-indigo-50 text-indigo-900 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <RefreshCcw className="w-5 h-5 shrink-0" />
+                                <h2 className="text-lg sm:text-xl font-bold">Update Order Details</h2>
+                            </div>
+                            <button onClick={() => setUpdatingOrder(null)} className="text-indigo-700 p-2">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleUpdateOrderSubmit} className="p-4 sm:p-6 space-y-6 overflow-y-auto">
+                            <div className="bg-indigo-50 p-4 rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 shrink-0">
+                                <div>
+                                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Customer</p>
+                                    <p className="text-lg font-black text-indigo-900 truncate">{updatingOrder.customerName}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Order ID</p>
+                                    <p className="text-lg font-black text-indigo-900">{updatingOrder.id}</p>
+                                </div>
                             </div>
 
-                            <form onSubmit={handleUpdateOrderSubmit} className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {/* Date Modifications */}
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold text-slate-900 border-b pb-2">Trip Dates</h3>
+                            {(updatingOrder.status === 'Active' || updatingOrder.status === 'Quotation') && (
+                                <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                                        <Package className="w-4 h-4 text-indigo-500" />
+                                        Manage Equipment & Dates
+                                    </h3>
+
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-700">Start Date</label>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Start Date</label>
                                             <input
                                                 type="date"
-                                                required
-                                                className="w-full mt-1 border rounded-lg p-2"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                                                 value={updateFormData.startDate}
                                                 onChange={(e) => setUpdateFormData({ ...updateFormData, startDate: e.target.value })}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-700">End Date</label>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">End Date</label>
                                             <input
                                                 type="date"
-                                                required
-                                                className="w-full mt-1 border rounded-lg p-2"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                                                 value={updateFormData.endDate}
                                                 onChange={(e) => setUpdateFormData({ ...updateFormData, endDate: e.target.value })}
                                             />
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Financial Modifications */}
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold text-slate-900 border-b pb-2">Financial Adjustments</h3>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700">Additional Payment</label>
-                                        <div className="relative mt-1">
-                                            <DollarSign className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                                            <input
-                                                type="number"
-                                                className="w-full pl-9 border rounded-lg p-2"
-                                                value={updateFormData.additionalPayment}
-                                                onChange={(e) => setUpdateFormData({ ...updateFormData, additionalPayment: parseFloat(e.target.value) || 0 })}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700">Late Fee</label>
-                                            <input
-                                                type="number"
-                                                className="w-full mt-1 border rounded-lg p-2"
-                                                value={updateFormData.lateFee}
-                                                onChange={(e) => setUpdateFormData({ ...updateFormData, lateFee: parseFloat(e.target.value) || 0 })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700">Damage Fee</label>
-                                            <input
-                                                type="number"
-                                                className="w-full mt-1 border rounded-lg p-2"
-                                                value={updateFormData.damageFee}
-                                                onChange={(e) => setUpdateFormData({ ...updateFormData, damageFee: parseFloat(e.target.value) || 0 })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase">Add Equipment</label>
+                                        <select
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
+                                            onChange={(e) => {
+                                                const equipId = e.target.value;
+                                                if (!equipId) return;
+                                                const item = equipment.find(eq => eq.id === equipId);
+                                                if (item && item.availableQuantity > 0) {
+                                                    const existing = updateFormData.items.find(ri => ri.equipmentId === equipId);
+                                                    if (existing) {
+                                                        if (existing.quantity >= item.availableQuantity + (updatingOrder.items.find(o => o.equipmentId === equipId)?.quantity || 0)) {
+                                                            alert(`Not enough stock.`);
+                                                            return;
+                                                        }
+                                                        setUpdateFormData({
+                                                            ...updateFormData,
+                                                            items: updateFormData.items.map(ri =>
+                                                                ri.equipmentId === equipId
+                                                                    ? { ...ri, quantity: ri.quantity + 1, totalPrice: (ri.quantity + 1) * item.pricePerDay }
+                                                                    : ri
+                                                            )
+                                                        });
+                                                    } else {
+                                                        setUpdateFormData({
+                                                            ...updateFormData,
+                                                            items: [...updateFormData.items, {
+                                                                equipmentId: item.id,
+                                                                name: item.name,
+                                                                quantity: 1,
+                                                                pricePerUnit: item.pricePerDay,
+                                                                totalPrice: item.pricePerDay
+                                                            }]
+                                                        });
+                                                    }
+                                                }
+                                            }}
+                                            value=""
+                                        >
+                                            <option value="">Choose equipment...</option>
+                                            {equipment.map(e => {
 
-                                {/* Item Modifications */}
-                                <div className="lg:col-span-2 space-y-4">
-                                    <h3 className="font-semibold text-slate-900 border-b pb-2">Order Items</h3>
-                                    <div className="bg-slate-50 rounded-xl p-4">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="text-xs uppercase text-slate-500 font-semibold">
+                                                const inCurrentOrder = updatingOrder.status === 'Active' ? (updatingOrder.items.find(oi => oi.equipmentId === e.id)?.quantity || 0) : 0;
+                                                const totalAvail = e.availableQuantity + inCurrentOrder;
+                                                if (totalAvail <= 0) return null;
+                                                return (
+                                                    <option key={e.id} value={e.id}>{e.name} ({settings.currency}{e.pricePerDay}/day - {totalAvail} available)</option>
+                                                );
+                                            })}
+                                        </select>
+                                    </div>
+
+                                    <div className="border border-slate-200 rounded-xl overflow-hidden max-h-40 overflow-y-auto bg-white">
+                                        <table className="w-full text-left text-xs">
+                                            <thead className="bg-slate-50 text-slate-500 uppercase font-black tracking-widest sticky top-0">
                                                 <tr>
-                                                    <th className="pb-2">Item</th>
-                                                    <th className="pb-2">Qty</th>
-                                                    <th className="pb-2 text-right">Unit Price</th>
-                                                    <th className="pb-2 text-right">Total</th>
+                                                    <th className="px-3 py-2">Item</th>
+                                                    <th className="px-3 py-2">Qty</th>
+                                                    <th className="px-3 py-2">Price</th>
+                                                    <th className="px-3 py-2 text-right"></th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-200">
-                                                {updateFormData.items.map((item, idx) => {
-                                                    const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)));
-                                                    return (
-                                                        <tr key={idx}>
-                                                            <td className="py-2 font-medium">{item.name}</td>
-                                                            <td className="py-2">
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    className="w-16 border rounded p-1"
-                                                                    value={item.quantity}
-                                                                    onChange={(e) => {
-                                                                        const newQty = parseInt(e.target.value) || 1;
-                                                                        const newItems = [...updateFormData.items];
-                                                                        newItems[idx] = { ...item, quantity: newQty };
-                                                                        setUpdateFormData({ ...updateFormData, items: newItems });
-                                                                    }}
-                                                                />
-                                                            </td>
-                                                            <td className="py-2 text-right">{settings.currency}{item.pricePerUnit}</td>
-                                                            <td className="py-2 text-right font-bold">{settings.currency}{(item.pricePerUnit * item.quantity * days).toFixed(2)}</td>
-                                                        </tr>
-                                                    );
-                                                })}
+                                            <tbody className="divide-y divide-slate-100">
+                                                {updateFormData.items.map((item, idx) => (
+                                                    <tr key={idx}>
+                                                        <td className="px-3 py-2 font-bold">{item.name}</td>
+                                                        <td className="px-3 py-2">
+                                                            <input
+                                                                type="number"
+                                                                className="w-10 border rounded px-1 outline-none"
+                                                                value={item.quantity}
+                                                                min="1"
+                                                                onChange={(e) => {
+                                                                    const eq = equipment.find(e => e.id === item.equipmentId);
+                                                                    const val = Math.max(1, Number(e.target.value));
+                                                                    const inCurrentOrder = updatingOrder.status === 'Active' ? (updatingOrder.items.find(oi => oi.equipmentId === item.equipmentId)?.quantity || 0) : 0;
+                                                                    const totalAvail = eq ? eq.availableQuantity + inCurrentOrder : val;
+                                                                    const finalVal = Math.min(val, totalAvail);
+
+                                                                    setUpdateFormData({
+                                                                        ...updateFormData,
+                                                                        items: updateFormData.items.map(ri =>
+                                                                            ri.equipmentId === item.equipmentId
+                                                                                ? { ...ri, quantity: finalVal, totalPrice: finalVal * ri.pricePerUnit }
+                                                                                : ri
+                                                                        )
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">{settings.currency}{item.pricePerUnit}</td>
+                                                        <td className="px-3 py-2 text-right">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setUpdateFormData({
+                                                                    ...updateFormData,
+                                                                    items: updateFormData.items.filter(ri => ri.equipmentId !== item.equipmentId)
+                                                                })}
+                                                                className="text-red-400 hover:text-red-600 p-1"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
+                            )}
 
-                                <div className="lg:col-span-2">
-                                    <label className="block text-sm font-medium text-slate-700">Notes / Reason for Update</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Record Payment ({settings.currency})</label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="number"
+                                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+                                            placeholder="Add partial payment..."
+                                            value={updateFormData.additionalPayment || ''}
+                                            onChange={e => setUpdateFormData({ ...updateFormData, additionalPayment: Number(e.target.value) })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2 italic">Late Fee / Fine</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span className="text-amber-500 font-bold">{settings.currency || '$'}</span>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            className="w-full pl-9 pr-3 py-2 bg-amber-50 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 font-bold text-amber-700 transition-all"
+                                            value={updateFormData.lateFee}
+                                            onChange={e => setUpdateFormData({ ...updateFormData, lateFee: Number(e.target.value) })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2 italic">Replacement / Damage Fee</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span className="text-rose-500 font-bold">{settings.currency || '$'}</span>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            className="w-full pl-9 pr-3 py-2 bg-rose-50 border border-rose-200 rounded-lg outline-none focus:ring-2 focus:ring-rose-500 font-bold text-rose-700 transition-all"
+                                            value={updateFormData.damageFee}
+                                            onChange={e => setUpdateFormData({ ...updateFormData, damageFee: Number(e.target.value) })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Order Notes</label>
                                     <textarea
-                                        className="w-full mt-1 border rounded-lg p-2 h-20"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 h-20 resize-none text-sm"
                                         value={updateFormData.notes}
-                                        onChange={(e) => setUpdateFormData({ ...updateFormData, notes: e.target.value })}
-                                    />
+                                        onChange={e => setUpdateFormData({ ...updateFormData, notes: e.target.value })}
+                                    ></textarea>
                                 </div>
+                            </div>
 
-                                <div className="lg:col-span-2 flex justify-end gap-3 pt-4 border-t">
-                                    <button
-                                        type="button"
-                                        onClick={() => setUpdatingOrder(null)}
-                                        className="px-4 py-2 text-slate-600 font-medium"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md"
-                                    >
-                                        Save Order Updates
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+
+                            <div className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+
+                                {(() => {
+                                    const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)));
+                                    const subtotal = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0) * days), 0);
+                                    let totalAfterDiscount = subtotal;
+                                    const discountVal = Number(updatingOrder.discountValue) || 0;
+                                    if (updatingOrder.discountType === 'percentage') {
+                                        totalAfterDiscount = subtotal - (subtotal * discountVal / 100);
+                                    } else {
+                                        totalAfterDiscount = Math.max(0, subtotal - discountVal);
+                                    }
+                                    const vat = totalAfterDiscount * ((Number(settings.taxPercentage) || 5) / 100);
+                                    const totalWithTax = totalAfterDiscount + vat;
+                                    const fees = (Number(updateFormData.lateFee) || 0) + (Number(updateFormData.damageFee) || 0);
+                                    const paid = (Number(updatingOrder.paidAmount) || 0) + (Number(updateFormData.additionalPayment) || 0);
+                                    const balance = (totalWithTax + fees) - paid;
+
+                                    return (
+                                        <div className="relative z-10 space-y-3">
+                                            <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-white/50 border-b border-white/10 pb-2">
+                                                <span>Financial Summary</span>
+                                                <span>{days} Days</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="opacity-70 italic">Rental Subtotal:</span>
+                                                <span className="font-bold">{settings.currency}{subtotal.toFixed(2)}</span>
+                                            </div>
+                                            {updatingOrder.discountValue > 0 && (
+                                                <div className="flex justify-between text-sm text-emerald-400">
+                                                    <span className="opacity-70 italic">Discount Applied:</span>
+                                                    <span className="font-bold">-{settings.currency}{(subtotal - totalAfterDiscount).toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between text-sm">
+                                                <span className="opacity-70 italic">VAT ({settings.taxPercentage || 5}%):</span>
+                                                <span className="font-bold">+{settings.currency}{vat.toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm text-rose-400">
+                                                <span className="opacity-70 italic">Additional Fees:</span>
+                                                <span className="font-bold">+{settings.currency}{fees.toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm text-indigo-300">
+                                                <span className="opacity-70 italic">Total Paid to Date:</span>
+                                                <span className="font-bold">-{settings.currency}{paid.toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xl pt-2 border-t border-white/10">
+                                                <span className="font-black tracking-tight">Remaining Balance:</span>
+                                                <span className={cn("font-black tracking-tighter", balance > 0 ? "text-rose-500" : "text-emerald-400")}>
+                                                    {settings.currency}{balance.toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            <div className="flex gap-4 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setUpdatingOrder(null)}
+                                    className="flex-1 px-4 py-3 border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold text-slate-600 active:scale-95"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
+                                >
+                                    Save Order Updates
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                )
-            }
+                </div>
+            )}
         </div >
     );
 };

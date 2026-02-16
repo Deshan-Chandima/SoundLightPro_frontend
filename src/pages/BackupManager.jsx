@@ -5,9 +5,8 @@ import { api } from '../services/apiService';
 const BackupManager = () => {
   const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: '' }
+  const [status, setStatus] = useState(null);
 
-  // Check if SQL mode is active
   const isSqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
 
   const showStatus = (type, message) => {
@@ -34,10 +33,10 @@ const BackupManager = () => {
     try {
       let data;
       if (isSqlMode) {
-        // Fetch from Backend
+
         data = await api.getBackup();
       } else {
-        // Fetch from Local Storage
+
         data = {
           equipment: JSON.parse(localStorage.getItem('rental_equipment') || '[]'),
           customers: JSON.parse(localStorage.getItem('rental_customers') || '[]'),
@@ -82,12 +81,12 @@ const BackupManager = () => {
         const data = JSON.parse(e.target?.result);
 
         if (isSqlMode) {
-          // Restore to Backend
+
           await api.restoreBackup(data);
           alert('Data restored successfully to SQL Database! The application will now reload.');
           window.location.reload();
         } else {
-          // Restore to Local Storage
+
           if (data.equipment) localStorage.setItem('rental_equipment', JSON.stringify(data.equipment));
           if (data.customers) localStorage.setItem('rental_customers', JSON.stringify(data.customers));
           if (data.orders) localStorage.setItem('rental_orders', JSON.stringify(data.orders));
@@ -131,7 +130,7 @@ const BackupManager = () => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Backup Section */}
+
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6">
             <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-4">
@@ -158,7 +157,7 @@ const BackupManager = () => {
           </div>
         </div>
 
-        {/* Restore Section */}
+
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6">
             <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center mb-4">
@@ -195,7 +194,7 @@ const BackupManager = () => {
         </div>
       </div>
 
-      {/* Info Box */}
+
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
         <div className="flex gap-4">
           <div className="bg-blue-600 text-white p-2 rounded-lg shrink-0 h-fit">

@@ -11,12 +11,8 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
 
     const handleDownloadPDF = () => {
         try {
-            console.log('Generating PDF for order:', order);
-            console.log('Settings:', settings);
             const doc = generateInvoicePDF(order, settings);
-            console.log('PDF Generated, saving...');
             doc.save(`Invoice_${order.id || 'draft'}.pdf`);
-            console.log('Save called');
         } catch (error) {
             console.error('Error downloading PDF:', error);
             alert('Failed to download PDF. See console for details.');
@@ -34,7 +30,6 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
     };
 
     const handleSendEmail = async () => {
-        // value from customer object or order object
         const emailToSend = customer?.email || order?.customerEmail;
 
         if (!emailToSend) {
@@ -78,7 +73,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 print:p-0 print:bg-white print:overflow-visible print:static print:block">
 
-            {/* Print Actions Bar */}
+
             <div className="fixed top-0 left-0 right-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm print:hidden z-50">
                 <div className="flex gap-3">
                     <button
@@ -89,7 +84,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                         Print Invoice
                     </button>
 
-                    {/* PDF Download Button */}
+
                     <button
                         onClick={handleDownloadPDF}
                         className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold transition-colors shadow-sm shadow-emerald-200"
@@ -98,7 +93,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                         Save as PDF
                     </button>
 
-                    {/* Ticket Download Button */}
+
                     <button
                         onClick={handleDownloadTicket}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition-colors shadow-sm shadow-indigo-200"
@@ -107,7 +102,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                         Download Ticket
                     </button>
 
-                    {/* Send Email Button */}
+
                     <button
                         onClick={handleSendEmail}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold transition-colors shadow-sm shadow-blue-200"
@@ -125,10 +120,10 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                 </button>
             </div>
 
-            {/* Main Invoice Container - A4 ratio roughly */}
+
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[850px] min-h-[1000px] mt-20 mb-10 print:mt-0 print:mb-0 print:shadow-none print:rounded-none overflow-hidden flex flex-col">
 
-                {/* Header Section */}
+
                 <div className="p-12 pb-8">
                     <div className="flex justify-between items-start">
                         <div className="flex items-center gap-4">
@@ -158,7 +153,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
 
                 <div className="border-t border-slate-100 mx-12"></div>
 
-                {/* Client & Dates Section */}
+
                 <div className="p-12 py-8 grid grid-cols-2 gap-12">
                     <div>
                         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Billed To</h3>
@@ -172,7 +167,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                                 {order.customerTrn}
                             </div>
                         )}
-                        {/* If we have customer ID in the object, display it */}
+
                         {order.customerId && (
                             <div className="text-xs text-slate-400 mt-2 uppercase tracking-wide">ID: {order.customerId}</div>
                         )}
@@ -189,7 +184,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                     </div>
                 </div>
 
-                {/* Items Table */}
+
                 <div className="px-12 py-4 flex-1">
                     <table className="w-full">
                         <thead>
@@ -207,7 +202,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                                     <td className="py-5 text-sm text-slate-500 font-medium text-center">{item.quantity}</td>
                                     <td className="py-5 text-sm text-slate-500 font-medium text-right text-slate-600">
                                         {currency}{parseFloat(item.pricePerUnit).toFixed(0)}
-                                        {/* Removed decimal .00 for cleaner look in price/day if integer, but keeping consistent usually better. Let's stick to no decimals if whole number? Or fixed. Design shows no decimals in price/day but decimals in total. */}
+
                                     </td>
                                     <td className="py-5 text-sm text-slate-900 font-bold text-right">
                                         {currency}{parseFloat(item.pricePerUnit * item.quantity * durationDays).toFixed(2)}
@@ -218,7 +213,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                     </table>
                 </div>
 
-                {/* Footer Totals */}
+
                 <div className="px-12 pb-12 mt-8">
                     <div className="flex justify-end">
                         <div className="w-1/2 max-w-sm space-y-3">

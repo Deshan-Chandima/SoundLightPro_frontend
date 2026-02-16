@@ -38,7 +38,7 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
         </div>
       </div>
 
-      {/* Financial Summary */}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-800 p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(79,70,229,0.3)] text-white group hover:scale-[1.02] transition-all relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
@@ -107,7 +107,7 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Equipment Condition Report */}
+
         <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
@@ -159,7 +159,7 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
           </div>
         </div>
 
-        {/* Category Distribution */}
+
         <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
@@ -185,7 +185,7 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
         </div>
       </div>
 
-      {/* Sales Report Table */}
+
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-6 border-b border-slate-100">
           <h3 className="font-bold text-slate-900 flex items-center gap-2">

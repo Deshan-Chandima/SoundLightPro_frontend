@@ -23,8 +23,7 @@ const Login = ({ onLogin, users }) => {
         }
         onLogin(data);
       } else {
-        // Fallback for Local Storage mode (still insecure but functional for local use)
-        // Default admin
+
         if (username === 'akil' && password === 'eternals') {
           onLogin({
             id: 'admin-default',
@@ -46,7 +45,6 @@ const Login = ({ onLogin, users }) => {
       }
     } catch (err) {
       console.error('Login Error:', err);
-      console.error('Login Error:', err);
       setError(err.message || 'Login failed. Please check console for details.');
     } finally {
       setLoading(false);
@@ -55,7 +53,7 @@ const Login = ({ onLogin, users }) => {
 
   return (
     <div className="min-h-screen bg-[#05051a] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Vivid Mesh Gradients */}
+
       <div className="absolute -top-24 -left-24 w-[40rem] h-[40rem] bg-indigo-600/30 rounded-full mix-blend-screen filter blur-[120px] animate-pulse"></div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50rem] h-[50rem] bg-purple-600/20 rounded-full mix-blend-screen filter blur-[150px]"></div>
       <div className="absolute -bottom-24 -right-24 w-[40rem] h-[40rem] bg-rose-600/30 rounded-full mix-blend-screen filter blur-[120px] animate-pulse animation-delay-2000"></div>

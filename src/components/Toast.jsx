@@ -89,7 +89,7 @@ export const ToastProvider = ({ children }) => {
 
         setToasts((prev) => [...prev, toast]);
 
-        // Auto-remove after duration
+
         setTimeout(() => {
             removeToast(id);
         }, toast.duration);
@@ -101,7 +101,7 @@ export const ToastProvider = ({ children }) => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
     }, []);
 
-    // Convenience methods
+
     const success = useCallback((message, title = 'Success') => {
         return addToast({ type: 'success', title, message });
     }, [addToast]);
@@ -121,7 +121,7 @@ export const ToastProvider = ({ children }) => {
     return (
         <ToastContext.Provider value={{ addToast, removeToast, success, error, warning, info }}>
             {children}
-            {/* Toast Container */}
+
             <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3">
                 {toasts.map((toast) => (
                     <Toast

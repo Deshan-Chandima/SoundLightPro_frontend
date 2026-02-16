@@ -32,7 +32,7 @@ const MainLayout = ({
 
     return (
         <div className="flex h-[100dvh] bg-slate-50 overflow-hidden relative font-sans">
-            {/* Mobile Backdrop */}
+
             {isMobileMenuOpen && (
                 <div
                     className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-md"

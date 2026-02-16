@@ -9,7 +9,6 @@ export const generateInvoicePDF = (order, settings) => {
         const currency = safeSettings.currency || 'AED';
         const companyName = safeSettings.companyName || 'Company Name';
 
-        // Header
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, 210, 40, 'F');
         doc.setDrawColor(241, 245, 249);
@@ -26,7 +25,6 @@ export const generateInvoicePDF = (order, settings) => {
         doc.setFont('helvetica', 'normal');
         doc.text(`${order.status === 'Quotation' ? 'Quote' : 'Invoice'} ID: #${order.id}`, 14, 32);
 
-        // Company Info
         doc.setTextColor(15, 23, 42);
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
@@ -41,7 +39,6 @@ export const generateInvoicePDF = (order, settings) => {
         doc.text(safeSettings.phone || '', 140, 21 + addressHeight);
         doc.text(safeSettings.email || '', 140, 21 + addressHeight + 4);
 
-        // Bill To
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
@@ -66,14 +63,12 @@ export const generateInvoicePDF = (order, settings) => {
 
         const tableStartY = Math.max(currentY + 10, 80);
 
-        // Rental Info
         doc.setFont('helvetica', 'bold');
         doc.text('RENTAL PERIOD:', 140, 55);
         doc.setFont('helvetica', 'normal');
         doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 60);
         doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 65);
 
-        // Rental Duration for item total calculation
         const isReturned = order.status === 'Returned' && order.returnDate;
         const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)));
         const actualDuration = isReturned
@@ -82,7 +77,6 @@ export const generateInvoicePDF = (order, settings) => {
 
         const durationDays = actualDuration;
 
-        // Table
         const tableData = order.items.map(item => [
             item.name,
             item.quantity.toString(),
@@ -100,7 +94,6 @@ export const generateInvoicePDF = (order, settings) => {
 
         const finalY = doc.lastAutoTable?.finalY || tableStartY + 20;
 
-        // Totals
         const leftX = 140;
         currentY = finalY + 10;
 
@@ -148,8 +141,7 @@ export const generateInvoicePDF = (order, settings) => {
             doc.setTextColor(0, 0, 0);
 
             currentY += 5;
-            // Balance Due Box
-            doc.setFillColor(15, 23, 42); // slate-900
+            doc.setFillColor(15, 23, 42);
             doc.roundedRect(leftX - 5, currentY, 70, 12, 1, 1, 'F');
 
             doc.setTextColor(255, 255, 255);
@@ -167,7 +159,6 @@ export const generateInvoicePDF = (order, settings) => {
             doc.text(`${currency}${parseFloat(order.totalAmount || 0).toFixed(2)}`, 190, currentY, { align: 'right' });
         }
 
-        // Damage Report if exists
         if (order.items.some(i => (i.replacementCost || 0) > 0)) {
             currentY += 20;
             doc.setFontSize(10);
@@ -182,7 +173,6 @@ export const generateInvoicePDF = (order, settings) => {
             });
         }
 
-        // Footer
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
         doc.text(`Thank you for choosing ${companyName}!`, 105, 280, { align: 'center' });
@@ -202,7 +192,6 @@ export const generateTicketPDF = (order, settings) => {
         const safeSettings = settings || {};
         const companyName = safeSettings.companyName || 'Company Name';
 
-        // Header
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, 210, 40, 'F');
         doc.setDrawColor(241, 245, 249);
@@ -218,13 +207,11 @@ export const generateTicketPDF = (order, settings) => {
         doc.setFont('helvetica', 'normal');
         doc.text(`Order ID: #${order.id}`, 14, 32);
 
-        // Company Info
         doc.setTextColor(15, 23, 42);
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text(companyName.toUpperCase(), 140, 15);
 
-        // Delivery To
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
@@ -244,7 +231,6 @@ export const generateTicketPDF = (order, settings) => {
 
         const tableStartY = Math.max(currentY + 10, 80);
 
-        // Rental Info
         doc.setFont('helvetica', 'bold');
         doc.text('RENTAL PERIOD:', 140, 55);
         doc.setFont('helvetica', 'normal');
@@ -260,11 +246,10 @@ export const generateTicketPDF = (order, settings) => {
 
         doc.text(`Duration: ${durationDays} Days`, 140, 70);
 
-        // Table (No Prices)
         const tableData = order.items.map(item => [
             item.name,
             item.quantity.toString(),
-            "_______" // Checkbox placeholder
+            "_______"
         ]);
 
         autoTable(doc, {
@@ -283,7 +268,6 @@ export const generateTicketPDF = (order, settings) => {
         const finalY = doc.lastAutoTable?.finalY || tableStartY + 20;
         currentY = finalY + 20;
 
-        // Notes
         if (order.notes) {
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
@@ -294,7 +278,6 @@ export const generateTicketPDF = (order, settings) => {
             currentY += (splitNotes.length * 6) + 20;
         }
 
-        // Signatures
         doc.setLineWidth(0.1);
         doc.line(14, currentY + 15, 80, currentY + 15);
         doc.line(120, currentY + 15, 190, currentY + 15);
@@ -303,7 +286,6 @@ export const generateTicketPDF = (order, settings) => {
         doc.text("Staff Signature", 14, currentY + 20);
         doc.text("Customer Signature", 120, currentY + 20);
 
-        // Footer
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
         doc.text(`${companyName} - Internal Dispatch Ticket`, 105, 280, { align: 'center' });

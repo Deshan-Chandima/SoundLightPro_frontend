@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 
-// Layout
 import MainLayout from './layouts/MainLayout';
 import ToastProvider from './components/Toast';
 
-// Pages
 import Dashboard from './pages/Dashboard';
 import InventoryManager from './pages/InventoryManager';
 import CustomerManager from './pages/CustomerManager';
@@ -45,7 +43,7 @@ export function App() {
         return saved ? JSON.parse(saved) : null;
     });
 
-    // Data State
+
     const [isSqlOnline, setIsSqlOnline] = useState(false);
     const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
 
@@ -57,7 +55,7 @@ export function App() {
     const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('rental_categories')) || INITIAL_CATEGORIES);
     const [settings, setSettings] = useState(() => JSON.parse(localStorage.getItem('rental_settings')) || DEFAULT_SETTINGS);
 
-    // Load Initial Data
+
     useEffect(() => {
         const loadData = async () => {
             if (sqlMode) {
@@ -111,12 +109,12 @@ export function App() {
         loadData();
     }, [sqlMode, currentUser]);
 
-    // Check for invoice view in URL
+
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
     const orderIdParam = urlParams.get('id');
 
-    // Sync to local storage
+
     useEffect(() => {
         localStorage.setItem('rental_equipment', JSON.stringify(equipment));
     }, [equipment]);
@@ -166,7 +164,7 @@ export function App() {
         setActiveView('dashboard');
     };
 
-    // Sync state across tabs
+
     useEffect(() => {
         const handleStorageChange = (e) => {
             if (e.key === 'rental_orders' && e.newValue) {
