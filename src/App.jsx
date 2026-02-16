@@ -59,6 +59,7 @@ export function App() {
     useEffect(() => {
         const loadData = async () => {
             if (sqlMode) {
+                if (!currentUser && sqlMode) return; // Stop if no user is logged in
                 try {
                     const { api } = await import('./services/apiService');
                     const [eq, cust, ord, exp, usrs, cats, sett] = await Promise.all([
