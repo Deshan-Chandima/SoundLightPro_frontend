@@ -71,7 +71,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
     const currency = settings.currency || 'AED';
 
     return (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 print:p-0 print:bg-white print:overflow-visible print:static print:block">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-start justify-center p-4 print:p-0 print:bg-white print:overflow-visible print:static print:block">
 
 
             <div className="fixed top-0 left-0 right-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm print:hidden z-50">

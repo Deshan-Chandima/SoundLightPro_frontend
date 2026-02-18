@@ -398,7 +398,6 @@ const OrderManager = ({
     };
 
     const handleOpenUpdateOrder = (order) => {
-
         setUpdatingOrder(order);
 
         let sDate = order.startDate;
@@ -410,9 +409,22 @@ const OrderManager = ({
             console.error("Date parsing error:", e);
         }
 
+        // Calculate Late Fee Automatically
+        let calculatedLateFee = 0;
+        const today = new Date();
+        const endDateObj = parseISO(order.endDate);
+        const daysOverdue = differenceInDays(today, endDateObj);
+
+        if (daysOverdue > 0 && order.status === 'Active') {
+            const startDateObj = parseISO(order.startDate);
+            const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+            const dailyRate = order.subtotalAmount / duration;
+            calculatedLateFee = Math.ceil(dailyRate * daysOverdue);
+        }
+
         setUpdateFormData({
             additionalPayment: 0,
-            lateFee: Number(order.lateFee) || 0,
+            lateFee: calculatedLateFee > 0 ? calculatedLateFee : (Number(order.lateFee) || 0),
             damageFee: Number(order.damageFee) || 0,
             notes: order.notes || '',
             startDate: sDate,
@@ -619,7 +631,34 @@ const OrderManager = ({
                                 <td className="px-6 py-4">
                                     <div className="text-sm">
                                         <p className="font-bold text-slate-900">{settings.currency}{order.totalAmount}</p>
-                                        <p className="text-xs text-red-500">Bal: {settings.currency}{order.balanceAmount}</p>
+                                        {(() => {
+                                            const today = new Date();
+                                            const endDateObj = parseISO(order.endDate);
+                                            const daysOverdue = differenceInDays(today, endDateObj);
+                                            let potentialLateFee = 0;
+
+                                            if (daysOverdue > 0 && order.status === 'Active') {
+                                                const startDateObj = parseISO(order.startDate);
+                                                const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                                                const dailyRate = order.subtotalAmount / duration;
+                                                potentialLateFee = Math.ceil(dailyRate * daysOverdue);
+                                            }
+
+                                            const totalBalance = (Number(order.balanceAmount) || 0) + potentialLateFee;
+
+                                            return (
+                                                <div className="flex flex-col">
+                                                    <p className="text-xs text-red-500">
+                                                        Bal: {settings.currency}{totalBalance.toFixed(2)}
+                                                    </p>
+                                                    {potentialLateFee > 0 && (
+                                                        <span className="text-[10px] text-amber-600 font-bold">
+                                                            (+{settings.currency}{potentialLateFee} late fee)
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">

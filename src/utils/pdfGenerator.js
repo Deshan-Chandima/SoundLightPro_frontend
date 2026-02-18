@@ -97,6 +97,15 @@ export const generateInvoicePDF = (order, settings) => {
         const leftX = 140;
         currentY = finalY + 10;
 
+        // Calculate required space for footer (totals + signatures + notes)
+        // Approximate height needed: ~80-100 units depending on content
+        const requiredFooterHeight = 100;
+
+        if (currentY + requiredFooterHeight > 280) {
+            doc.addPage();
+            currentY = 40; // Reset to top margin
+        }
+
         const subtotalLabel = order.status === 'Quotation' ? 'Total:' : 'Subtotal:';
         doc.text(subtotalLabel, leftX, currentY);
         doc.text(`${currency}${parseFloat(order.subtotalAmount || 0).toFixed(2)}`, 190, currentY, { align: 'right' });
