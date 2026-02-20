@@ -17,7 +17,7 @@ import InvoiceView from './pages/InvoiceView';
 
 const DEFAULT_SETTINGS = {
     companyName: 'SoundLight Pro',
-    logo: '',
+    logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MDAgNTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQxIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNGY0NmU1O3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzdjM2FlZDtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgcng9IjEwMCIgcnk9IjEwMCIgZmlsbD0idXJsKCNncmFkMSkiIC8+PHBhdGggZD0iTTE1MCwyNTAgUTI1MCwxNTAgMzUwLDI1MCBUNTUwLDI1MCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxNSIgZmlsbD0ibm9uZSIgb3BhY2l0eT0iMC44IiAvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwMCIgZmlsbD0id2hpdGUiIGR5PSIyMCI+UzwvdGV4dD48L3N2Zz4=',
     address: '123 Event Lane, Show City',
     email: 'contact@soundlightpro.com',
     phone: '+1 (555) 123-4567',
