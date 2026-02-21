@@ -35,42 +35,42 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
-    getCategories: () => request('/categories'),
-    saveCategory: (category) => request('/categories', { method: 'POST', body: JSON.stringify(category) }),
-    deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
+    getCategories: () => request('/api/categories'),
+    saveCategory: (category) => request('/api/categories', { method: 'POST', body: JSON.stringify(category) }),
+    deleteCategory: (id) => request(`/api/categories/${id}`, { method: 'DELETE' }),
 
-    getEquipment: () => request('/equipment'),
-    saveEquipment: (item) => request('/equipment', { method: 'POST', body: JSON.stringify(item) }),
-    updateEquipment: (item) => request(`/equipment/${item.id}`, { method: 'PUT', body: JSON.stringify(item) }),
-    deleteEquipment: (id) => request(`/equipment/${id}`, { method: 'DELETE' }),
+    getEquipment: () => request('/api/equipment'),
+    saveEquipment: (item) => request('/api/equipment', { method: 'POST', body: JSON.stringify(item) }),
+    updateEquipment: (item) => request(`/api/equipment/${item.id}`, { method: 'PUT', body: JSON.stringify(item) }),
+    deleteEquipment: (id) => request(`/api/equipment/${id}`, { method: 'DELETE' }),
 
-    getCustomers: () => request('/customers'),
-    saveCustomer: (customer) => request('/customers', { method: 'POST', body: JSON.stringify(customer) }),
-    updateCustomer: (customer) => request(`/customers/${customer.id}`, { method: 'PUT', body: JSON.stringify(customer) }),
-    deleteCustomer: (id) => request(`/customers/${id}`, { method: 'DELETE' }),
+    getCustomers: () => request('/api/customers'),
+    saveCustomer: (customer) => request('/api/customers', { method: 'POST', body: JSON.stringify(customer) }),
+    updateCustomer: (customer) => request(`/api/customers/${customer.id}`, { method: 'PUT', body: JSON.stringify(customer) }),
+    deleteCustomer: (id) => request(`/api/customers/${id}`, { method: 'DELETE' }),
 
-    getOrders: () => request('/orders'),
-    saveOrder: (order) => request('/orders', { method: 'POST', body: JSON.stringify(order) }),
-    updateOrder: (order) => request(`/orders/${order.id}`, { method: 'PUT', body: JSON.stringify(order) }),
-    deleteOrder: (id) => request(`/orders/${id}`, { method: 'DELETE' }),
+    getOrders: () => request('/api/orders'),
+    saveOrder: (order) => request('/api/orders', { method: 'POST', body: JSON.stringify(order) }),
+    updateOrder: (order) => request(`/api/orders/${order.id}`, { method: 'PUT', body: JSON.stringify(order) }),
+    deleteOrder: (id) => request(`/api/orders/${id}`, { method: 'DELETE' }),
 
-    getExpenses: () => request('/expenses'),
-    saveExpense: (expense) => request('/expenses', { method: 'POST', body: JSON.stringify(expense) }),
-    updateExpense: (expense) => request(`/expenses/${expense.id}`, { method: 'PUT', body: JSON.stringify(expense) }),
-    deleteExpense: (id) => request(`/expenses/${id}`, { method: 'DELETE' }),
+    getExpenses: () => request('/api/expenses'),
+    saveExpense: (expense) => request('/api/expenses', { method: 'POST', body: JSON.stringify(expense) }),
+    updateExpense: (expense) => request(`/api/expenses/${expense.id}`, { method: 'PUT', body: JSON.stringify(expense) }),
+    deleteExpense: (id) => request(`/api/expenses/${id}`, { method: 'DELETE' }),
 
-    getUsers: () => request('/users'),
-    saveUser: (user) => request('/users', { method: 'POST', body: JSON.stringify(user) }),
-    updateUser: (user) => request(`/users/${user.id}`, { method: 'PUT', body: JSON.stringify(user) }),
-    deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+    getUsers: () => request('/api/users'),
+    saveUser: (user) => request('/api/users', { method: 'POST', body: JSON.stringify(user) }),
+    updateUser: (user) => request(`/api/users/${user.id}`, { method: 'PUT', body: JSON.stringify(user) }),
+    deleteUser: (id) => request(`/api/users/${id}`, { method: 'DELETE' }),
 
-    getSettings: () => request('/settings'),
-    saveSettings: (settings) => request('/settings', { method: 'POST', body: JSON.stringify(settings) }),
+    getSettings: () => request('/api/settings'),
+    saveSettings: (settings) => request('/api/settings', { method: 'POST', body: JSON.stringify(settings) }),
 
-    login: (credentials) => request('/login', { method: 'POST', body: JSON.stringify(credentials) }),
+    login: (credentials) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
 
-    getBackup: () => request('/backup/export'),
-    restoreBackup: (data) => request('/backup/import', { method: 'POST', body: JSON.stringify(data) }),
+    getBackup: () => request('/api/backup/export'),
+    restoreBackup: (data) => request('/api/backup/import', { method: 'POST', body: JSON.stringify(data) }),
 
-    sendInvoice: (formData) => request('/email/send-invoice', { method: 'POST', body: formData }),
+    sendInvoice: (formData) => request('/api/email/send-invoice', { method: 'POST', body: formData }),
 };
