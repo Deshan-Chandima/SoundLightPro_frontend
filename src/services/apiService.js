@@ -1,5 +1,10 @@
-
-const API_URL = import.meta.env.VITE_API_URL || localStorage.getItem('rental_api_url') || 'http://localhost:5000';
+const getApiUrl = () => {
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        return 'https://mazelineevents.com';
+    }
+    return import.meta.env.VITE_API_URL || localStorage.getItem('rental_api_url') || 'http://localhost:5000';
+};
+const API_URL = getApiUrl();
 const SQL_MODE = localStorage.getItem('rental_sql_mode') !== 'false';
 
 export const isSqlMode = () => SQL_MODE;
@@ -18,7 +23,12 @@ async function request(endpoint, options = {}) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const isGet = !options.method || options.method.toUpperCase() === 'GET';
+    const finalEndpoint = isGet
+        ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}_t=${Date.now()}`
+        : endpoint;
+
+    const response = await fetch(`${API_URL}${finalEndpoint}`, {
         ...options,
         headers,
     });
@@ -29,7 +39,14 @@ async function request(endpoint, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error('API request failed');
+        let errorMessage = 'API request failed';
+        try {
+            const errData = await response.json();
+            errorMessage = errData.error || errData.message || errorMessage;
+        } catch (e) {
+            // ignore JSON parse error
+        }
+        throw new Error(errorMessage);
     }
     return response.json();
 }

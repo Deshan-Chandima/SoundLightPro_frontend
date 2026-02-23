@@ -81,6 +81,7 @@ export function App() {
                     setIsSqlOnline(true);
                 } catch (error) {
                     console.error("SQL Connection Failed, falling back to Local Storage:", error);
+                    alert("CRITICAL: Failed to connect to Live Database.\nError: " + error.message + "\n\nYou are now operating in OFFLINE MODE. Changes will NOT be saved to the server.");
                     loadFromLocal();
                     setIsSqlOnline(false);
                 }
@@ -230,23 +231,24 @@ export function App() {
                 return <UserManager
                     users={users}
                     onAddUser={async (user) => {
-                        const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
                         if (sqlMode) {
                             const { api } = await import('./services/apiService');
-                            await api.saveUser(user);
+                            const savedUser = await api.saveUser(user);
+                            setUsers([...users, savedUser || user]);
+                        } else {
+                            setUsers([...users, user]);
                         }
-                        setUsers([...users, user]);
                     }}
                     onUpdateUser={async (updatedUser) => {
-                        const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
                         if (sqlMode) {
                             const { api } = await import('./services/apiService');
-                            await api.updateUser(updatedUser);
+                            const savedUser = await api.updateUser(updatedUser);
+                            setUsers(users.map(u => u.id === updatedUser.id ? (savedUser || updatedUser) : u));
+                        } else {
+                            setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
                         }
-                        setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
                     }}
                     onDeleteUser={async (id) => {
-                        const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
                         if (sqlMode) {
                             const { api } = await import('./services/apiService');
                             await api.deleteUser(id);

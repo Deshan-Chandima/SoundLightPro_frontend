@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Receipt, User, DollarSign, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Receipt, User, DollarSign, X, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ExpenseManager = ({ expenses = [], setExpenses, orders, settings }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [deletingExpense, setDeletingExpense] = useState(null);
 
   const [formData, setFormData] = useState({
     orderId: '',
@@ -55,19 +56,25 @@ const ExpenseManager = ({ expenses = [], setExpenses, orders, settings }) => {
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (confirm('Are you sure you want to delete this expense record?')) {
-      const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
-      if (sqlMode) {
-        try {
-          const { api } = await import('../services/apiService');
-          await api.deleteExpense(id);
-        } catch (error) {
-          console.error("Failed to delete expense:", error);
-        }
+  const handleDelete = (expense) => {
+    setDeletingExpense(expense);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingExpense) return;
+    const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
+    if (sqlMode) {
+      try {
+        const { api } = await import('../services/apiService');
+        await api.deleteExpense(deletingExpense.id);
+      } catch (error) {
+        console.error("Failed to delete expense:", error);
+        setDeletingExpense(null);
+        return;
       }
-      setExpenses(prev => prev.filter(ex => ex.id !== id));
     }
+    setExpenses(prev => prev.filter(ex => ex.id !== deletingExpense.id));
+    setDeletingExpense(null);
   };
 
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
@@ -218,6 +225,34 @@ const ExpenseManager = ({ expenses = [], setExpenses, orders, settings }) => {
         </div>
       )}
 
+      {deletingExpense && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Expense?</h3>
+            <p className="text-slate-500 mb-6">
+              Are you sure you want to delete the expense for <span className="font-bold text-slate-700">{deletingExpense.staffName}</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingExpense(null)}
+                className="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium shadow-sm shadow-red-200"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-left min-w-[800px]">
           <thead>
@@ -265,7 +300,7 @@ const ExpenseManager = ({ expenses = [], setExpenses, orders, settings }) => {
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(ex.id)}
+                      onClick={() => handleDelete(ex)}
                       className="p-1.5 hover:bg-red-50 rounded-md text-red-500 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />

@@ -7,10 +7,12 @@ import {
 } from 'lucide-react';
 import { format, differenceInDays, isAfter, parseISO } from 'date-fns';
 import { cn } from '../utils/cn';
+import { useToast } from '../components/Toast';
 
 const OrderManager = ({
     orders, setOrders, equipment, setEquipment, customers, setCustomers, settings
 }) => {
+    const { success, error, warning, info } = useToast();
     const [showForm, setShowForm] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('active');
@@ -81,7 +83,7 @@ const OrderManager = ({
             const currentQtyInOrder = existing ? existing.quantity : 0;
 
             if (currentQtyInOrder + 1 > item.availableQuantity) {
-                alert(`Cannot add more. Only ${item.availableQuantity} units of ${item.name} are available.`);
+                warning(`Cannot add more. Only ${item.availableQuantity} units of ${item.name} are available.`);
                 return;
             }
 
@@ -140,7 +142,7 @@ const OrderManager = ({
             createdAt: new Date().toISOString()
         };
 
-        const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
+        const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
         if (sqlMode) {
             try {
                 const { api } = await import('../services/apiService');
@@ -150,9 +152,9 @@ const OrderManager = ({
                     await updateStockForOrder(rentalItems);
                 }
                 resetForm();
-            } catch (error) {
-                console.error("Failed to save order:", error);
-                alert("CRITICAL ERROR: Failed to save order to SQL database. Data was not saved.");
+            } catch (err) {
+                console.error("Failed to save order:", err);
+                error("CRITICAL ERROR: Failed to save order to SQL database. Data was not saved.");
             }
         } else {
             setOrders(prev => [newOrder, ...prev]);
@@ -166,7 +168,7 @@ const OrderManager = ({
     };
 
     const updateStockForOrder = async (items) => {
-        const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
+        const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
         const { api } = sqlMode ? await import('../services/apiService') : { api: null };
 
         const updatedEquipment = equipment.map(eq => {
@@ -186,16 +188,16 @@ const OrderManager = ({
 
     const handleConvertQuotationToOrder = async (order) => {
         const updatedOrder = { ...order, status: 'Active' };
-        const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
+        const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
         if (sqlMode) {
             try {
                 const { api } = await import('../services/apiService');
                 await api.updateOrder(updatedOrder);
                 setOrders(prev => prev.map(o => o.id === order.id ? updatedOrder : o));
                 await updateStockForOrder(order.items);
-            } catch (error) {
-                console.error("Failed to update order:", error);
-                alert("Error: Failed to convert quotation. Please try again.");
+            } catch (err) {
+                console.error("Failed to update order:", err);
+                error("Failed to convert quotation. Please try again.");
             }
         } else {
             setOrders(prev => prev.map(o => o.id === order.id ? updatedOrder : o));
@@ -307,7 +309,7 @@ const OrderManager = ({
             balanceAmount: (totalAmount + lateFee + damageFeeTotal) - processingReturn.paidAmount
         };
 
-        const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
+        const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
         if (sqlMode) {
             try {
                 const { api } = await import('../services/apiService');
@@ -329,7 +331,7 @@ const OrderManager = ({
 
                         let newStatus = eq.status;
                         if (currentAvailable + quantityToAdd > 0) {
-                            newStatus = 'Available';
+                            newStatus = 'Reusable';
                         } else if (currentAvailable + quantityToAdd === 0 && quantityDamaged > 0) {
                             newStatus = 'Damaged';
                         }
@@ -338,12 +340,15 @@ const OrderManager = ({
                             ...eq,
                             availableQuantity: currentAvailable + quantityToAdd,
                             damagedQuantity: (eq.damagedQuantity || 0) + quantityDamaged,
-                            totalQuantity: Math.max(0, eq.totalQuantity - quantityDamaged),
+                            totalQuantity: Math.max(0, eq.totalQuantity),
                             status: newStatus
                         };
                         stockUpdatePromises.push(
                             api.updateEquipment(updated)
-                                .catch(err => console.error(`Stock restore FAILED for ${eq.name}:`, err))
+                                .catch(err => {
+                                    console.error(`Stock restore FAILED for ${eq.name}:`, err);
+                                    throw new Error(`Failed to update ${eq.name}: ${err.message}`);
+                                })
                         );
                         return updated;
                     }
@@ -354,10 +359,10 @@ const OrderManager = ({
                 setEquipment(updatedEquipment);
                 setProcessingReturn(null);
                 setReturnSuccess(updatedOrder);
-                alert("Return processed successfully. Stock has been updated and saved.");
-            } catch (error) {
-                console.error("Failed to update order:", error);
-                alert("Error: Failed to process return. Please check your connection.");
+                success("Return processed successfully. Stock has been updated and saved.");
+            } catch (err) {
+                console.error("Failed to update order:", err);
+                error("Failed to process return: " + (err.message || "check your connection."));
             }
         } else {
             setOrders(prev => {
@@ -374,7 +379,7 @@ const OrderManager = ({
 
                     let newStatus = eq.status;
                     if (currentAvailable + quantityToAdd > 0) {
-                        newStatus = 'Available';
+                        newStatus = 'Reusable';
                     } else if (currentAvailable + quantityToAdd === 0 && quantityDamaged > 0) {
                         newStatus = 'Damaged';
                     }
@@ -383,7 +388,7 @@ const OrderManager = ({
                         ...eq,
                         availableQuantity: currentAvailable + quantityToAdd,
                         damagedQuantity: (eq.damagedQuantity || 0) + quantityDamaged,
-                        totalQuantity: Math.max(0, eq.totalQuantity - quantityDamaged),
+                        totalQuantity: Math.max(0, eq.totalQuantity),
                         status: newStatus
                     };
                 }
@@ -393,7 +398,7 @@ const OrderManager = ({
             setEquipment(updatedEquipment);
             setProcessingReturn(null);
             setReturnSuccess(updatedOrder);
-            alert("Return processed successfully. Stock has been updated.");
+            success("Return processed successfully. Stock has been updated.");
         }
     };
 
@@ -477,7 +482,7 @@ const OrderManager = ({
 
 
             if (updatingOrder.status === 'Active') {
-                const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
+                const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
                 const { api } = sqlMode ? await import('../services/apiService') : { api: null };
 
                 const updatedEquipment = [...equipment];
@@ -510,7 +515,7 @@ const OrderManager = ({
                 setEquipment(updatedEquipment);
             }
 
-            const sqlMode = localStorage.getItem('rental_sql_mode') === 'true';
+            const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
             if (sqlMode) {
                 const { api } = await import('../services/apiService');
                 await api.updateOrder(updatedOrder);
@@ -518,9 +523,10 @@ const OrderManager = ({
 
             setOrders(prev => prev.map(o => o.id === updatingOrder.id ? updatedOrder : o));
             setUpdatingOrder(null);
-        } catch (error) {
-            console.error("Failed to update order:", error);
-            alert("Error: Failed to save updates. " + error.message);
+            success("Order updated successfully!");
+        } catch (err) {
+            console.error("Failed to update order:", err);
+            error("Failed to save updates. " + err.message);
         }
     };
 
@@ -537,11 +543,11 @@ const OrderManager = ({
     };
 
     const filteredOrders = orders.filter(o => {
-        const matchesSearch = o.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            o.id.toLowerCase().includes(searchTerm.toLowerCase());
+        const term = searchTerm.trim().toLowerCase();
+        const matchesSearch = (o.customerName || '').toLowerCase().includes(term) ||
+            (o.id || '').toLowerCase().includes(term);
 
-        const isPaidOff = o.balanceAmount <= 0;
-        const isHistory = o.status === 'Returned' && isPaidOff;
+        const isHistory = o.status === 'Returned' && (Number(o.balanceAmount) || 0) <= 0;
 
         if (activeTab === 'history') {
             return matchesSearch && isHistory;

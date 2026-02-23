@@ -17,7 +17,7 @@ export const generateInvoicePDF = (order, settings) => {
         doc.setTextColor(15, 23, 42);
         doc.setFontSize(24);
         doc.setFont('helvetica', 'bold');
-        const title = order.status === 'Quotation' ? 'QUOTATION' : 'INVOICE';
+        const title = order.status === 'Quotation' ? 'QUOTATION' : 'TAX INVOICE';
         doc.text(title, 14, 25);
 
         doc.setTextColor(100, 116, 139);
@@ -25,27 +25,69 @@ export const generateInvoicePDF = (order, settings) => {
         doc.setFont('helvetica', 'normal');
         doc.text(`${order.status === 'Quotation' ? 'Quote' : 'Invoice'} ID: #${order.id}`, 14, 32);
 
-        doc.setTextColor(15, 23, 42);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(companyName.toUpperCase(), 140, 15);
+        // In the PDF, since we want a very large layout like the picture:
+        if (safeSettings.logo) {
+            try {
+                // If the user uploads a JPEG, passing 'PNG' might sometimes still work in jsPDF, or it might infer it.
+                // It's safer to just provide the image data, the type, the X, the Y, and the Width, and let jsPDF figure out the Height.
+                // We'll extract the type from the data URL if possible, or default to 'PNG'.
+                let imgType = 'PNG';
+                if (typeof safeSettings.logo === 'string' && safeSettings.logo.startsWith('data:image/')) {
+                    const match = safeSettings.logo.match(/^data:image\/([a-zA-Z0-9]+);/);
+                    if (match && match[1]) {
+                        imgType = match[1].toUpperCase();
+                        if (imgType === 'JPEG') imgType = 'JPEG'; // jsPDF expects JPEG or format name
+                    }
+                }
 
-        doc.setTextColor(100, 116, 139);
-        doc.setFontSize(8);
+                // Draw image with fixed width of 65, and auto-scaled height (by omitting height argument or passing 0/undefined appropriately).
+                // jsPDF sig is `addImage(imageData, format, x, y, w, h)`. If `h` is omitted or 0, it scales automatically.
+                // Let's pass 0 for height just to be safe, or just omit it.
+                // align right: x = 135 (since width is 65, and side margin is ~10, 210-75)
+                doc.addImage(safeSettings.logo, imgType, 135, 5, 65, 0);
+            } catch (e) {
+                console.error("Error drawing logo:", e);
+                // Fallback drawing company name instead if it completely fails to avoid breaking the whole PDF
+                doc.setTextColor(15, 23, 42);
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text(companyName.toUpperCase(), 140, 15);
+            }
+        } else {
+            // No logo, but we will print company details on the left anyway, so we don't need to put the name on the right side.
+        }
+
+        // Adjusted Y position for the rest of the document.
+        // Tax Invoice is at 25, Invoice ID at 32. 
+        // Company details will start at 45 on the left.
+
+        doc.setTextColor(0, 0, 0);
+
+        // Add company details on the left side under the title
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(companyName.toUpperCase(), 14, 45);
         doc.setFont('helvetica', 'normal');
-        const splitAddress = doc.splitTextToSize(safeSettings.address || '', 60);
-        doc.text(splitAddress, 140, 21);
-        const addressHeight = splitAddress.length * 4;
-        doc.text(safeSettings.phone || '', 140, 21 + addressHeight);
-        doc.text(safeSettings.email || '', 140, 21 + addressHeight + 4);
+        doc.setFontSize(8);
+        const compY = 50;
+        const splitAddressComp = doc.splitTextToSize(safeSettings.address || '', 60);
+        doc.text(splitAddressComp, 14, compY);
+        const addressHeightComp = splitAddressComp.length * 4;
+        doc.text(`Contact: ${safeSettings.phone || ''}`, 14, compY + addressHeightComp);
+        doc.text(`Email: ${safeSettings.email || ''}`, 14, compY + addressHeightComp + 4);
+
+        // Billed To section starts lower to clear company details and logo
+        let currentY = 80;
 
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('BILLED TO:', 14, 55);
+        doc.text('BILLED TO:', 14, currentY);
         doc.setFont('helvetica', 'normal');
-        doc.text(order.customerName, 14, 60);
-        let currentY = 65;
+        currentY += 5;
+        doc.text(order.customerName, 14, currentY);
+        currentY += 5;
+
         if (order.customerAddress) {
             const splitAddress = doc.splitTextToSize(order.customerAddress, 80);
             doc.text(splitAddress, 14, currentY);
@@ -61,13 +103,13 @@ export const generateInvoicePDF = (order, settings) => {
         doc.text(`Customer ID: ${order.customerId}`, 14, currentY);
         doc.setFontSize(10);
 
-        const tableStartY = Math.max(currentY + 10, 80);
+        const tableStartY = Math.max(currentY + 10, 110);
 
         doc.setFont('helvetica', 'bold');
-        doc.text('RENTAL PERIOD:', 140, 55);
+        doc.text('RENTAL PERIOD:', 140, 80);
         doc.setFont('helvetica', 'normal');
-        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 60);
-        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 65);
+        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 85);
+        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 90);
 
         const isReturned = order.status === 'Returned' && order.returnDate;
         const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)));
@@ -115,8 +157,8 @@ export const generateInvoicePDF = (order, settings) => {
             doc.setTextColor(59, 130, 246);
             const discountLabel = order.discountType === 'percentage' ? `Discount (${order.discountValue}%):` : 'Discount:';
             const discountAmt = order.discountType === 'percentage'
-                ? (order.subtotalAmount * order.discountValue / 100)
-                : order.discountValue;
+                ? (parseFloat(order.subtotalAmount || 0) * parseFloat(order.discountValue || 0) / 100)
+                : parseFloat(order.discountValue || 0);
             doc.text(discountLabel, leftX, currentY);
             doc.text(`-${currency}${discountAmt.toFixed(2)}`, 190, currentY, { align: 'right' });
             doc.setTextColor(0, 0, 0);

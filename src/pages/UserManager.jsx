@@ -12,7 +12,7 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
     username: '',
     password: '',
     email: '',
-    phone: '',
+    contact: '',
     role: 'admin',
   });
 
@@ -20,7 +20,7 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.phone.includes(searchQuery)
+    (user.contact && user.contact.includes(searchQuery))
   );
 
   const handleSubmit = async (e) => {
@@ -30,11 +30,7 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
     try {
       if (editingUser) {
         const updatedUser = { ...editingUser, ...formData };
-        if (sqlMode) {
-          const { api } = await import('../services/apiService');
-          await api.updateUser(updatedUser);
-        }
-        onUpdateUser(updatedUser);
+        await onUpdateUser(updatedUser);
         handleCloseModal();
         toast.success(`User "${updatedUser.name}" updated successfully`);
       } else {
@@ -42,11 +38,7 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
           id: `USR-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
           ...formData,
         };
-        if (sqlMode) {
-          const { api } = await import('../services/apiService');
-          await api.saveUser(newUser);
-        }
-        onAddUser(newUser);
+        await onAddUser(newUser);
         handleCloseModal();
         toast.success(`User "${newUser.name}" created successfully`);
       }
@@ -63,7 +55,7 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
       username: user.username,
       password: user.password || '',
       email: user.email,
-      phone: user.phone,
+      contact: user.contact || '',
       role: user.role,
     });
     setIsModalOpen(true);
@@ -77,7 +69,7 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
       username: '',
       password: '',
       email: '',
-      phone: '',
+      contact: '',
       role: 'admin',
     });
   };
@@ -165,7 +157,7 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Phone size={14} className="text-gray-400" />
-                          {user.phone}
+                          {user.contact || 'N/A'}
                         </div>
                       </div>
                     </td>
@@ -272,14 +264,14 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Phone</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Phone / Contact</label>
                   <input
                     type="tel"
                     required
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                     placeholder="+123..."
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    value={formData.contact}
+                    onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
                   />
                 </div>
 

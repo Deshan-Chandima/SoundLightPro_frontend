@@ -124,29 +124,35 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[850px] min-h-[1000px] mt-20 mb-10 print:mt-0 print:mb-0 print:shadow-none print:rounded-none overflow-hidden flex flex-col">
 
 
-                <div className="p-12 pb-8">
+                <div className="p-12 pb-4">
                     <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-4">
-                            {settings.logo ? (
-                                <img src={settings.logo} alt="Logo" className="w-16 h-16 object-contain rounded-lg" />
-                            ) : (
-                                <div className="w-16 h-16 bg-slate-900 text-white rounded-lg flex items-center justify-center">
-                                    <Box className="w-8 h-8" />
-                                </div>
-                            )}
+                        <div className="flex flex-col gap-4">
                             <div>
-                                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase">INVOICE</h1>
+                                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase">TAX INVOICE</h1>
                                 <p className="text-slate-400 font-medium tracking-wide text-sm mt-1 uppercase">Invoice ID: #{order.id}</p>
                             </div>
                         </div>
 
                         <div className="text-right">
+                            {settings.logo ? (
+                                <img src={settings.logo} alt="Logo" className="w-80 h-auto max-h-48 object-contain rounded-lg ml-auto mb-0" />
+                            ) : (
+                                <div className="w-32 h-32 bg-slate-900 text-white rounded-lg flex items-center justify-center ml-auto mb-0">
+                                    <Box className="w-16 h-16" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-start mt-0 mb-4">
+                        <div className="w-full">
                             <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{settings.companyName}</h2>
                             <div className="text-sm text-slate-500 font-medium leading-relaxed mt-1">
                                 <p>{settings.address}</p>
                                 <p>{settings.phone}</p>
                                 <p>{settings.email}</p>
                             </div>
+                        </div>
+                        <div className="text-right min-w-[200px]">
                         </div>
                     </div>
                 </div>
@@ -265,7 +271,6 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                         <p className="text-slate-300 text-xs italic mt-1">This is a computer generated document.</p>
                     </div>
                 </div>
-
             </div>
         </div>
     );

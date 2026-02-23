@@ -18,10 +18,12 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
   const collectedPayments = orders.reduce((sum, o) => sum + (parseFloat(o.paidAmount) || 0), 0);
   const pendingSales = totalSales - collectedPayments;
 
+  const totalPhysicalItems = equipment.reduce((sum, item) => sum + (Number(item.totalQuantity) || 0), 0) || 1;
+
   const equipmentStatusCounts = {
-    New: equipment.filter(e => e.status === 'New').length,
-    Reusable: equipment.filter(e => e.status === 'Reusable').length,
-    Damaged: equipment.filter(e => e.status === 'Damaged').length,
+    New: equipment.filter(e => e.status === 'New').reduce((sum, item) => sum + Math.max(0, (Number(item.totalQuantity) || 0) - (Number(item.damagedQuantity) || 0)), 0),
+    Reusable: equipment.filter(e => e.status !== 'New').reduce((sum, item) => sum + Math.max(0, (Number(item.totalQuantity) || 0) - (Number(item.damagedQuantity) || 0)), 0),
+    Damaged: equipment.reduce((sum, item) => sum + (Number(item.damagedQuantity) || 0), 0),
   };
 
   const categoryCounts = {};
@@ -124,7 +126,7 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
               <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden shadow-inner">
                 <div
                   className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-3 rounded-full transition-all duration-1000"
-                  style={{ width: `${(equipmentStatusCounts.New / equipment.length * 100) || 0}%` }}
+                  style={{ width: `${(equipmentStatusCounts.New / totalPhysicalItems * 100) || 0}%` }}
                 ></div>
               </div>
             </div>
@@ -137,7 +139,7 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
               <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden shadow-inner">
                 <div
                   className="bg-gradient-to-r from-emerald-500 to-teal-600 h-3 rounded-full transition-all duration-1000"
-                  style={{ width: `${(equipmentStatusCounts.Reusable / equipment.length * 100) || 0}%` }}
+                  style={{ width: `${(equipmentStatusCounts.Reusable / totalPhysicalItems * 100) || 0}%` }}
                 ></div>
               </div>
             </div>
@@ -152,7 +154,7 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
               <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden shadow-inner">
                 <div
                   className="bg-gradient-to-r from-rose-500 to-pink-600 h-3 rounded-full transition-all duration-1000"
-                  style={{ width: `${(equipmentStatusCounts.Damaged / equipment.length * 100) || 0}%` }}
+                  style={{ width: `${(equipmentStatusCounts.Damaged / totalPhysicalItems * 100) || 0}%` }}
                 ></div>
               </div>
             </div>

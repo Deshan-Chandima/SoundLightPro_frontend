@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit2, User, Phone, Mail, MapPin, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, User, Phone, Mail, MapPin, X, AlertTriangle } from 'lucide-react';
 
 const CustomerManager = ({ customers, setCustomers }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [deletingCustomer, setDeletingCustomer] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -49,6 +50,23 @@ const CustomerManager = ({ customers, setCustomers }) => {
     setEditingCustomer(customer);
     setFormData(customer);
     setShowForm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingCustomer) return;
+    const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
+    if (sqlMode) {
+      try {
+        const { api } = await import('../services/apiService');
+        await api.deleteCustomer(deletingCustomer.id);
+      } catch (error) {
+        console.error("Failed to delete customer:", error);
+        setDeletingCustomer(null);
+        return;
+      }
+    }
+    setCustomers(prev => prev.filter(c => c.id !== deletingCustomer.id));
+    setDeletingCustomer(null);
   };
 
   const filteredCustomers = customers.filter(c =>
@@ -171,6 +189,34 @@ const CustomerManager = ({ customers, setCustomers }) => {
         </div>
       )}
 
+      {deletingCustomer && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Customer?</h3>
+            <p className="text-slate-500 mb-6">
+              Are you sure you want to delete <span className="font-bold text-slate-700">{deletingCustomer.name}</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingCustomer(null)}
+                className="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium shadow-sm shadow-red-200"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredCustomers.length > 0 ? filteredCustomers.map((customer) => (
           <div key={customer.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:border-blue-200 transition-colors group">
@@ -178,12 +224,20 @@ const CustomerManager = ({ customers, setCustomers }) => {
               <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center">
                 <User className="w-6 h-6 text-slate-500" />
               </div>
-              <button
-                onClick={() => handleEdit(customer)}
-                className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => handleEdit(customer)}
+                  className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setDeletingCustomer(customer)}
+                  className="p-2 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <h3 className="font-bold text-slate-900 text-lg">{customer.name}</h3>
             <p className="text-xs text-slate-400 mb-4">{customer.id}</p>
