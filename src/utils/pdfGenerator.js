@@ -2,12 +2,13 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
-export const generateInvoicePDF = (order, settings) => {
+export const generateInvoicePDF = (order, settings, docType = null) => {
     try {
         const doc = new jsPDF();
         const safeSettings = settings || {};
         const currency = safeSettings.currency || 'AED';
         const companyName = safeSettings.companyName || 'Company Name';
+        const isQuotation = docType ? docType === 'Quotation' : order.status === 'Quotation';
 
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, 210, 40, 'F');
@@ -17,13 +18,13 @@ export const generateInvoicePDF = (order, settings) => {
         doc.setTextColor(15, 23, 42);
         doc.setFontSize(24);
         doc.setFont('helvetica', 'bold');
-        const title = order.status === 'Quotation' ? 'QUOTATION' : 'TAX INVOICE';
+        const title = isQuotation ? 'QUOTATION' : 'TAX INVOICE';
         doc.text(title, 14, 25);
 
         doc.setTextColor(100, 116, 139);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`${order.status === 'Quotation' ? 'Quote' : 'Invoice'} ID: #${order.id}`, 14, 32);
+        doc.text(`${isQuotation ? 'Quote' : 'Invoice'} ID: #${order.id}`, 14, 32);
 
         // In the PDF, since we want a very large layout like the picture:
         if (safeSettings.logo) {
@@ -148,7 +149,7 @@ export const generateInvoicePDF = (order, settings) => {
             currentY = 40; // Reset to top margin
         }
 
-        const subtotalLabel = order.status === 'Quotation' ? 'Total:' : 'Subtotal:';
+        const subtotalLabel = isQuotation ? 'Total:' : 'Subtotal:';
         doc.text(subtotalLabel, leftX, currentY);
         doc.text(`${currency}${parseFloat(order.subtotalAmount || 0).toFixed(2)}`, 190, currentY, { align: 'right' });
 
@@ -168,7 +169,7 @@ export const generateInvoicePDF = (order, settings) => {
         doc.text('VAT (5%):', leftX, currentY);
         doc.text(`+${currency}${parseFloat(order.taxAmount || 0).toFixed(2)}`, 190, currentY, { align: 'right' });
 
-        if (order.status !== 'Quotation') {
+        if (!isQuotation) {
             if (order.lateFee > 0) {
                 currentY += 7;
                 doc.setTextColor(220, 38, 38);

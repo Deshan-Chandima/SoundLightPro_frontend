@@ -415,21 +415,25 @@ const OrderManager = ({
         }
 
         // Calculate Late Fee Automatically
-        let calculatedLateFee = 0;
-        const today = new Date();
-        const endDateObj = parseISO(order.endDate);
-        const daysOverdue = differenceInDays(today, endDateObj);
+        let calculatedLateFee = Number(order.lateFee) || 0;
+        if (order.status === 'Active') {
+            const today = new Date();
+            const endDateObj = parseISO(order.endDate);
+            const daysOverdue = differenceInDays(today, endDateObj);
 
-        if (daysOverdue > 0 && order.status === 'Active') {
-            const startDateObj = parseISO(order.startDate);
-            const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
-            const dailyRate = order.subtotalAmount / duration;
-            calculatedLateFee = Math.ceil(dailyRate * daysOverdue);
+            if (daysOverdue > 0) {
+                const startDateObj = parseISO(order.startDate);
+                const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                const dailyRate = order.subtotalAmount / duration;
+                calculatedLateFee = Math.ceil(dailyRate * daysOverdue);
+            } else {
+                calculatedLateFee = 0;
+            }
         }
 
         setUpdateFormData({
             additionalPayment: 0,
-            lateFee: calculatedLateFee > 0 ? calculatedLateFee : (Number(order.lateFee) || 0),
+            lateFee: calculatedLateFee,
             damageFee: Number(order.damageFee) || 0,
             notes: order.notes || '',
             startDate: sDate,
@@ -641,25 +645,32 @@ const OrderManager = ({
                                             const today = new Date();
                                             const endDateObj = parseISO(order.endDate);
                                             const daysOverdue = differenceInDays(today, endDateObj);
-                                            let potentialLateFee = 0;
+                                            let currentLateFee = Number(order.lateFee) || 0;
+                                            let showLateBadge = false;
 
-                                            if (daysOverdue > 0 && order.status === 'Active') {
-                                                const startDateObj = parseISO(order.startDate);
-                                                const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
-                                                const dailyRate = order.subtotalAmount / duration;
-                                                potentialLateFee = Math.ceil(dailyRate * daysOverdue);
+                                            if (order.status === 'Active') {
+                                                if (daysOverdue > 0) {
+                                                    const startDateObj = parseISO(order.startDate);
+                                                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                                                    const dailyRate = order.subtotalAmount / duration;
+                                                    currentLateFee = Math.ceil(dailyRate * daysOverdue);
+                                                    showLateBadge = true;
+                                                } else {
+                                                    currentLateFee = 0;
+                                                }
                                             }
 
-                                            const totalBalance = (Number(order.balanceAmount) || 0) + potentialLateFee;
+                                            const savedLateFee = Number(order.lateFee) || 0;
+                                            const totalBalance = (Number(order.balanceAmount) || 0) - savedLateFee + currentLateFee;
 
                                             return (
                                                 <div className="flex flex-col">
                                                     <p className="text-xs text-red-500">
                                                         Bal: {settings.currency}{totalBalance.toFixed(2)}
                                                     </p>
-                                                    {potentialLateFee > 0 && (
+                                                    {showLateBadge && currentLateFee > 0 && (
                                                         <span className="text-[10px] text-amber-600 font-bold">
-                                                            (+{settings.currency}{potentialLateFee} late fee)
+                                                            (incl. {settings.currency}{currentLateFee} late fee)
                                                         </span>
                                                     )}
                                                 </div>
@@ -1161,7 +1172,22 @@ const OrderManager = ({
                                                 type="date"
                                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                                                 value={updateFormData.endDate}
-                                                onChange={(e) => setUpdateFormData({ ...updateFormData, endDate: e.target.value })}
+                                                onChange={(e) => {
+                                                    const newEndDate = e.target.value;
+                                                    let newLateFee = updateFormData.lateFee;
+                                                    if (updatingOrder?.status === 'Active') {
+                                                        const today = new Date();
+                                                        const endDateObj = parseISO(newEndDate);
+                                                        const daysOverdue = differenceInDays(today, endDateObj);
+                                                        if (daysOverdue > 0) {
+                                                            const dailyRate = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0)), 0);
+                                                            newLateFee = Math.ceil(dailyRate * daysOverdue);
+                                                        } else {
+                                                            newLateFee = 0;
+                                                        }
+                                                    }
+                                                    setUpdateFormData({ ...updateFormData, endDate: newEndDate, lateFee: newLateFee });
+                                                }}
                                             />
                                         </div>
                                     </div>

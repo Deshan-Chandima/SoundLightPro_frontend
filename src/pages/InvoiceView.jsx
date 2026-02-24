@@ -9,13 +9,13 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
         window.print();
     };
 
-    const handleDownloadPDF = () => {
+    const handleDownloadPDF = (docType) => {
         try {
-            const doc = generateInvoicePDF(order, settings);
-            doc.save(`Invoice_${order.id || 'draft'}.pdf`);
+            const doc = generateInvoicePDF(order, settings, docType);
+            doc.save(`${docType}_${order.id || 'draft'}.pdf`);
         } catch (error) {
-            console.error('Error downloading PDF:', error);
-            alert('Failed to download PDF. See console for details.');
+            console.error(`Error downloading ${docType}:`, error);
+            alert(`Failed to download ${docType}. See console for details.`);
         }
     };
 
@@ -86,11 +86,19 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
 
 
                     <button
-                        onClick={handleDownloadPDF}
+                        onClick={() => handleDownloadPDF('Invoice')}
                         className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold transition-colors shadow-sm shadow-emerald-200"
                     >
                         <FileDown className="w-4 h-4" />
-                        Save as PDF
+                        Save Invoice PDF
+                    </button>
+
+                    <button
+                        onClick={() => handleDownloadPDF('Quotation')}
+                        className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold transition-colors shadow-sm shadow-teal-200"
+                    >
+                        <FileDown className="w-4 h-4" />
+                        Save Quotation PDF
                     </button>
 
 
