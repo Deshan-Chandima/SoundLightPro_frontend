@@ -271,7 +271,7 @@ export function App() {
         const order = orders.find(o => o.id === orderIdParam);
         const customer = customers.find(c => c.id === order?.customerId);
         if (order) {
-            return <InvoiceView order={order} customer={customer} settings={settings} onClose={() => window.close()} />;
+            return <InvoiceView equipment={equipment} order={order} customer={customer} settings={settings} onClose={() => window.close()} currentUser={currentUser} />;
         }
         return <div className="p-10 text-center">Order not found.</div>;
     }

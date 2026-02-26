@@ -1,17 +1,17 @@
 import React from 'react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { Printer, FileDown, X, Box, ClipboardList, Send } from 'lucide-react';
-import { generateInvoicePDF, generateTicketPDF } from '../utils/pdfGenerator';
+import { generateInvoicePDF, generateTicketPDF, formatTerms } from '../utils/pdfGenerator';
 import { api } from '../services/apiService';
 
-const InvoiceView = ({ order, customer, settings, onClose }) => {
+const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUser }) => {
     const handlePrint = () => {
         window.print();
     };
 
     const handleDownloadPDF = (docType) => {
         try {
-            const doc = generateInvoicePDF(order, settings, docType);
+            const doc = generateInvoicePDF(order, settings, docType, currentUser, equipment);
             doc.save(`${docType}_${order.id || 'draft'}.pdf`);
         } catch (error) {
             console.error(`Error downloading ${docType}:`, error);
@@ -21,7 +21,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
 
     const handleDownloadTicket = () => {
         try {
-            const doc = generateTicketPDF(order, settings);
+            const doc = generateTicketPDF(order, settings, equipment);
             doc.save(`Ticket_${order.id || 'draft'}.pdf`);
         } catch (error) {
             console.error('Error downloading Ticket:', error);
@@ -37,25 +37,29 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
             return;
         }
 
-        if (!confirm(`Send invoice to ${emailToSend}?`)) {
+        const isQuotation = order.status === 'Quotation';
+        const docName = isQuotation ? 'Quotation' : 'Invoice';
+
+        if (!confirm(`Send ${docName} to ${emailToSend}?`)) {
             return;
         }
 
         try {
-            const doc = generateInvoicePDF(order, settings);
+            const doc = generateInvoicePDF(order, settings, isQuotation ? 'Quotation' : 'Invoice', currentUser, equipment);
             const blob = doc.output('blob');
 
             const formData = new FormData();
-            formData.append('invoice', blob, `Invoice_${order.id}.pdf`);
+            formData.append('invoice', blob, `${docName}_${order.id}.pdf`);
             formData.append('email', emailToSend);
             formData.append('orderId', order.id);
             formData.append('customerName', order.customerName);
+            formData.append('docType', docName);
 
             await api.sendInvoice(formData);
-            alert(`Invoice sent successfully to ${emailToSend}`);
+            alert(`${docName} sent successfully to ${emailToSend}`);
         } catch (error) {
-            console.error('Error sending invoice:', error);
-            alert('Failed to send invoice. Check console for details.');
+            console.error(`Error sending ${docName.toLowerCase()}:`, error);
+            alert(`Failed to send ${docName.toLowerCase()}. Check console for details.`);
         }
     };
 
@@ -85,21 +89,25 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                     </button>
 
 
-                    <button
-                        onClick={() => handleDownloadPDF('Invoice')}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold transition-colors shadow-sm shadow-emerald-200"
-                    >
-                        <FileDown className="w-4 h-4" />
-                        Save Invoice PDF
-                    </button>
+                    {order.status !== 'Quotation' && (
+                        <button
+                            onClick={() => handleDownloadPDF('Invoice')}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold transition-colors shadow-sm shadow-emerald-200"
+                        >
+                            <FileDown className="w-4 h-4" />
+                            Save Invoice PDF
+                        </button>
+                    )}
 
-                    <button
-                        onClick={() => handleDownloadPDF('Quotation')}
-                        className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold transition-colors shadow-sm shadow-teal-200"
-                    >
-                        <FileDown className="w-4 h-4" />
-                        Save Quotation PDF
-                    </button>
+                    {order.status === 'Quotation' && (
+                        <button
+                            onClick={() => handleDownloadPDF('Quotation')}
+                            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold transition-colors shadow-sm shadow-teal-200"
+                        >
+                            <FileDown className="w-4 h-4" />
+                            Save Quotation PDF
+                        </button>
+                    )}
 
 
                     <button
@@ -116,7 +124,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                         className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold transition-colors shadow-sm shadow-blue-200"
                     >
                         <Send className="w-4 h-4" />
-                        Send to Customer
+                        {order.status === 'Quotation' ? 'Send Quotation' : 'Send Invoice'}
                     </button>
                 </div>
                 <button
@@ -136,8 +144,12 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                     <div className="flex justify-between items-start">
                         <div className="flex flex-col gap-4">
                             <div>
-                                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase">TAX INVOICE</h1>
-                                <p className="text-slate-400 font-medium tracking-wide text-sm mt-1 uppercase">Invoice ID: #{order.id}</p>
+                                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase">
+                                    {order.status === 'Quotation' ? 'QUOTATION' : 'TAX INVOICE'}
+                                </h1>
+                                <p className="text-slate-400 font-medium tracking-wide text-sm mt-1 uppercase">
+                                    {order.status === 'Quotation' ? 'Quote' : 'Invoice'} ID: #{order.id}
+                                </p>
                             </div>
                         </div>
 
@@ -170,7 +182,9 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
 
                 <div className="p-12 py-8 grid grid-cols-2 gap-12">
                     <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Billed To</h3>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+                            {order.status === 'Quotation' ? 'Customer Details' : 'Billed To'}
+                        </h3>
                         <div className="text-slate-900 font-bold text-lg mb-1">{order.customerName}</div>
                         <div className="text-slate-500 text-sm leading-relaxed whitespace-pre-line mb-2">
                             {order.customerAddress}
@@ -180,10 +194,6 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                                 <span className="text-slate-400 mr-2">TRN:</span>
                                 {order.customerTrn}
                             </div>
-                        )}
-
-                        {order.customerId && (
-                            <div className="text-xs text-slate-400 mt-2 uppercase tracking-wide">ID: {order.customerId}</div>
                         )}
                     </div>
 
@@ -200,29 +210,63 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
 
 
                 <div className="px-12 py-4 flex-1">
-                    <table className="w-full">
-                        <thead>
+                    <table className="w-full border-2 border-slate-900">
+                        <thead className="bg-[#b5e522]">
                             <tr className="border-b-2 border-slate-900">
-                                <th className="text-left py-4 text-xs font-bold text-slate-900 uppercase tracking-widest">Equipment Name</th>
-                                <th className="text-center py-4 text-xs font-bold text-slate-900 uppercase tracking-widest">Qty</th>
-                                <th className="text-right py-4 text-xs font-bold text-slate-900 uppercase tracking-widest">Price/Day</th>
-                                <th className="text-right py-4 text-xs font-bold text-slate-900 uppercase tracking-widest">Total ({durationDays} Days)</th>
+                                <th className="text-center py-3 text-xs font-bold text-slate-900 uppercase tracking-widest w-12 border-r-2 border-slate-900">#</th>
+                                <th className="text-center py-3 px-4 text-xs font-bold text-slate-900 uppercase tracking-widest border-r-2 border-slate-900">ITEMS</th>
+                                <th className="text-center py-3 text-xs font-bold text-slate-900 uppercase tracking-widest w-20 border-r-2 border-slate-900">QTY</th>
+                                <th className="text-center py-3 text-xs font-bold text-slate-900 uppercase tracking-widest w-40">Amount</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {order.items.map((item, idx) => (
-                                <tr key={idx}>
-                                    <td className="py-5 text-sm key={idx} text-slate-700 font-bold">{item.name}</td>
-                                    <td className="py-5 text-sm text-slate-500 font-medium text-center">{item.quantity}</td>
-                                    <td className="py-5 text-sm text-slate-500 font-medium text-right text-slate-600">
-                                        {currency}{parseFloat(item.pricePerUnit).toFixed(0)}
+                        <tbody className="bg-white">
+                            {(() => {
+                                const groupedItems = {};
+                                order.items.forEach(item => {
+                                    // If the order item doesn't have a category saved, fall back to "OTHER" (or we could pass equipment list to look it up)
+                                    // Let's rely on the order's saved category. If not present, log as OTHER.
+                                    let cat = item.category;
 
-                                    </td>
-                                    <td className="py-5 text-sm text-slate-900 font-bold text-right">
-                                        {currency}{parseFloat(item.pricePerUnit * item.quantity * durationDays).toFixed(2)}
-                                    </td>
-                                </tr>
-                            ))}
+                                    if (!cat || cat.toUpperCase() === 'OTHER') {
+                                        const eq = equipment?.find(e => e.id === item.equipmentId);
+                                        if (eq && eq.category) {
+                                            cat = eq.category;
+                                        } else {
+                                            cat = 'OTHER';
+                                        }
+                                    }
+
+                                    cat = cat.toUpperCase();
+
+                                    if (!groupedItems[cat]) groupedItems[cat] = { items: [], total: 0 };
+                                    groupedItems[cat].items.push(item);
+                                    groupedItems[cat].total += (Number(item.pricePerUnit || item.totalPrice || 0) * Number(item.quantity || 1) * durationDays);
+                                });
+
+                                let globalItemIndex = 1;
+                                return Object.entries(groupedItems).map(([category, data], catIdx) => (
+                                    <React.Fragment key={category}>
+                                        <tr className="border-b border-slate-900 bg-slate-300">
+                                            <td colSpan="3" className="py-1 px-4 text-sm font-black text-slate-900 uppercase text-center border-r-2 border-slate-900">
+                                                {category}
+                                            </td>
+                                            <td rowSpan={data.items.length + 1} className="py-2 px-4 text-sm text-slate-900 font-bold text-center align-middle border-b-2 border-slate-900 border-l border-slate-200 bg-white">
+                                                {parseFloat(data.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </td>
+                                        </tr>
+                                        {data.items.map((item, idx) => {
+                                            const isLastInCategory = idx === data.items.length - 1;
+                                            return (
+                                                <tr key={idx} className={`last:border-0 hover:bg-slate-50 transition-colors ${isLastInCategory ? 'border-b-2 border-slate-900' : 'border-b border-slate-300'}`}>
+                                                    <td className="py-1 px-2 text-sm text-slate-900 font-bold text-center border-r-2 border-slate-900">{/* Empty index column to match the picture style or just use global index? The picture has empty first column for indices, wait, no it is empty in picture, but let's keep it empty or remove index for cleaner look. Let's leave it blank or just remove text. Actually let's just leave it blank to perfectly match the photo. */}</td>
+                                                    <td className="py-1 px-4 text-sm text-slate-900 font-medium border-r-2 border-slate-900">{item.name}</td>
+                                                    <td className="py-1 px-2 text-sm text-slate-900 font-medium text-center border-r-2 border-slate-900">{item.quantity}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </React.Fragment>
+                                ));
+                            })()}
                         </tbody>
                     </table>
                 </div>
@@ -233,7 +277,7 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                         <div className="w-1/2 max-w-sm space-y-3">
                             <div className="flex justify-between items-center text-slate-500 text-sm font-medium">
                                 <span>Subtotal:</span>
-                                <span className="text-slate-700 font-bold">{currency}{parseFloat(order.subtotalAmount || 0).toFixed(0)}</span>
+                                <span className="text-slate-700 font-bold">{currency}{parseFloat(order.subtotalAmount || 0).toFixed(2)}</span>
                             </div>
 
                             {order.discountValue > 0 && (
@@ -251,32 +295,81 @@ const InvoiceView = ({ order, customer, settings, onClose }) => {
                                 <span className="text-slate-700 font-bold">+{currency}{parseFloat(order.taxAmount || 0).toFixed(2)}</span>
                             </div>
 
-                            {(parseFloat(order.lateFee) > 0) && (
-                                <div className="flex justify-between items-center text-red-600 text-sm font-medium">
-                                    <span>Late Fees:</span>
-                                    <span className="font-bold">+{currency}{parseFloat(order.lateFee).toFixed(2)}</span>
+                            {order.status !== 'Quotation' ? (
+                                <>
+                                    {(parseFloat(order.lateFee) > 0) && (
+                                        <div className="flex justify-between items-center text-red-600 text-sm font-medium">
+                                            <span>Late Fees:</span>
+                                            <span className="font-bold">+{currency}{parseFloat(order.lateFee).toFixed(2)}</span>
+                                        </div>
+                                    )}
+
+                                    {(parseFloat(order.paidAmount) > 0) && (
+                                        <div className="flex justify-between items-center text-emerald-600 text-sm font-medium pt-2">
+                                            <span>Total Paid To Date:</span>
+                                            <span className="font-bold">-{currency}{parseFloat(order.paidAmount || 0).toFixed(2)}</span>
+                                        </div>
+                                    )}
+
+                                    <div className="mt-4 pt-4">
+                                        <div className="bg-slate-900 text-white p-4 rounded-lg flex justify-between items-center shadow-lg">
+                                            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Balance Due</span>
+                                            <span className="text-2xl font-black">{currency}{parseFloat(order.balanceAmount || 0).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="mt-4 pt-4">
+                                    <div className="bg-slate-900 text-white p-4 rounded-lg flex justify-between items-center shadow-lg">
+                                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Grand Total</span>
+                                        <span className="text-2xl font-black">{currency}{parseFloat(order.totalAmount || 0).toFixed(2)}</span>
+                                    </div>
                                 </div>
                             )}
-
-                            {(parseFloat(order.paidAmount) > 0) && (
-                                <div className="flex justify-between items-center text-emerald-600 text-sm font-medium pt-2">
-                                    <span>Total Paid To Date:</span>
-                                    <span className="font-bold">-{currency}{parseFloat(order.paidAmount || 0).toFixed(0)}</span>
-                                </div>
-                            )}
-
-                            <div className="mt-4 pt-4">
-                                <div className="bg-slate-900 text-white p-4 rounded-lg flex justify-between items-center shadow-lg">
-                                    <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Balance Due</span>
-                                    <span className="text-2xl font-black">{currency}{parseFloat(order.balanceAmount || 0).toFixed(0)}</span>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
-                    <div className="mt-20 pt-8 border-t border-slate-100 text-center">
-                        <p className="text-slate-400 font-bold text-sm">Thank you for choosing {settings.companyName}!</p>
-                        <p className="text-slate-300 text-xs italic mt-1">This is a computer generated document.</p>
+                </div>
+
+                <div className="mt-auto">
+                    {/* Bank Details (Invoice Only) */}
+                    {order.status !== 'Quotation' && settings.bankDetails && (
+                        <div className="mt-12 text-left px-12">
+                            <div className="text-sm text-slate-900 whitespace-pre-line font-bold leading-relaxed">
+                                {settings.bankDetails}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Terms and Conditions (Quotation Only) */}
+                    {order.status === 'Quotation' && settings.termsAndConditions && (
+                        <div className="mt-16 text-left border-t border-slate-100 pt-8 px-12">
+                            <h4 className="text-sm font-bold text-slate-900 mb-4">Terms and Conditions:</h4>
+                            <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed text-justify">
+                                {formatTerms(settings.termsAndConditions)}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-16 pt-8 border-t border-slate-100 px-12 pb-8">
+                        {order.status === 'Quotation' && (
+                            <div className="text-left w-1/2 mb-12">
+                                <p className="text-slate-700 text-sm mb-4">
+                                    Best Regards,<br />
+                                    On behalf of {settings.companyName}.
+                                </p>
+                                <div className="mt-12 w-48 border-b-2 border-slate-800"></div>
+                                <p className="text-slate-900 font-bold tracking-widest uppercase mt-4 text-xs">
+                                    {currentUser?.name || currentUser?.username || 'AUTHORIZED SIGNATORY'}
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="text-center w-full mt-8">
+                            <p className="text-slate-400 font-bold text-sm">
+                                {order.status !== 'Quotation' ? 'Thank You For Your Business.' : `Thank you for choosing ${settings.companyName}!`}
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>

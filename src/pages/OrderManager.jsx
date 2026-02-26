@@ -97,6 +97,7 @@ const OrderManager = ({
                 setRentalItems(prev => [...prev, {
                     equipmentId: item.id,
                     name: item.name,
+                    category: item.category || 'Other',
                     quantity: 1,
                     pricePerUnit: item.pricePerDay,
                     totalPrice: item.pricePerDay
@@ -720,7 +721,7 @@ const OrderManager = ({
                                         )}
                                         <button
                                             onClick={() => openInvoiceWindow(order.id)}
-                                            title="View Invoice"
+                                            title={order.status === 'Quotation' ? "View Quotation" : "View Invoice"}
                                             className="p-2.5 bg-violet-50 hover:bg-violet-600 text-violet-600 hover:text-white rounded-[1.25rem] transition-all duration-300 active:scale-90 shadow-sm border border-violet-100"
                                         >
                                             <FileDown className="w-5 h-5" />
@@ -1221,6 +1222,7 @@ const OrderManager = ({
                                                             items: [...updateFormData.items, {
                                                                 equipmentId: item.id,
                                                                 name: item.name,
+                                                                category: item.category || 'Other',
                                                                 quantity: 1,
                                                                 pricePerUnit: item.pricePerDay,
                                                                 totalPrice: item.pricePerDay

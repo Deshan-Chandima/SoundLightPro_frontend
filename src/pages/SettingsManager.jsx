@@ -116,70 +116,20 @@ CREATE TABLE settings (
   address TEXT,
   email VARCHAR(255),
   phone VARCHAR(50),
-  currency VARCHAR(10)
+  currency VARCHAR(10),
+  taxPercentage DECIMAL(5,2),
+  smtpHost VARCHAR(255),
+  smtpPort INT,
+  smtpUser VARCHAR(255),
+  smtpPass VARCHAR(255),
+  smtpFrom VARCHAR(255),
+  bankDetails TEXT,
+  termsAndConditions TEXT
 );
   `;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
-      <div className="bg-gradient-to-r from-indigo-900 to-violet-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden mb-10">
-        <div className="relative z-10">
-          <h2 className="text-3xl font-black mb-2">Database Synchronization</h2>
-          <p className="opacity-80 font-medium">Connect your local system to a live SQL database for enterprise scaling.</p>
-
-          <div className="mt-8 flex flex-col sm:flex-row items-center gap-6 bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/20">
-            <div className="flex-1 w-full">
-              <label className="block text-xs font-black uppercase tracking-widest mb-2 opacity-70">
-                Server API URL {envApiUrl && <span className="text-emerald-400 ml-2">(Managed by Environment)</span>}
-              </label>
-              <input
-                type="text"
-                className={cn(
-                  "w-full bg-black/20 border border-white/20 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-400 transition-all font-mono text-sm",
-                  envApiUrl && "opacity-50 cursor-not-allowed"
-                )}
-                value={apiUrl}
-                onChange={e => !envApiUrl && setApiUrl(e.target.value)}
-                readOnly={!!envApiUrl}
-                placeholder="http://your-server.com"
-              />
-            </div>
-            <div className="shrink-0 flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-xs font-black uppercase tracking-widest opacity-70">Database Mode</p>
-                <p className="font-bold text-lg">{sqlMode ? 'SQL API (Online)' : 'Local Storage (Offline)'}</p>
-              </div>
-              <button
-                onClick={handleSqlToggle}
-                className={cn(
-                  "w-16 h-8 rounded-full p-1 transition-all duration-300 relative",
-                  sqlMode ? "bg-emerald-500" : "bg-slate-600"
-                )}
-              >
-                <div className={cn(
-                  "w-6 h-6 bg-white rounded-full shadow-lg transition-all duration-300",
-                  sqlMode ? "translate-x-8" : "translate-x-0"
-                )} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {sqlMode && (
-        <div className="bg-slate-900 rounded-3xl p-8 text-white mb-10 border border-slate-800 shadow-2xl">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-blue-500/20 rounded-xl border border-blue-500/30">
-              <Database className="w-6 h-6 text-blue-400" />
-            </div>
-            <h3 className="text-xl font-black">SQL Database Schema</h3>
-          </div>
-          <p className="text-slate-400 mb-6 text-sm">Copy this schema and run it on your SQL server to prepare the database tables.</p>
-          <div className="bg-black/50 p-6 rounded-2xl border border-slate-800 font-mono text-xs overflow-x-auto text-blue-300">
-            <pre>{sqlSchema}</pre>
-          </div>
-        </div>
-      )}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">System Settings</h1>
         <p className="text-slate-500">Configure your company profile and application preferences</p>
@@ -363,9 +313,38 @@ CREATE TABLE settings (
             </div>
           </div>
 
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-6">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <h2 className="font-bold text-slate-900 flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-emerald-600" />
+                Document Settings (Invoices & Quotations)
+              </h2>
+            </div>
 
+            <div className="p-6 grid grid-cols-1 gap-6">
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">Bank Details (Shows on Invoices)</label>
+                <textarea
+                  placeholder="Account Title: ...&#10;Bank: ...&#10;Account Number: ...&#10;IBAN: ..."
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 h-32 resize-none"
+                  value={formData.bankDetails || ''}
+                  onChange={e => setFormData({ ...formData, bankDetails: e.target.value })}
+                ></textarea>
+                <p className="text-xs text-slate-500">These details will be printed at the bottom of standard invoices.</p>
+              </div>
 
-
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">Terms & Conditions (Shows on Quotations)</label>
+                <textarea
+                  placeholder="* Equipments supplied purely on a rental basis.&#10;* PAYMENT TERMS: 50% Advance..."
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 h-48 resize-none"
+                  value={formData.termsAndConditions || ''}
+                  onChange={e => setFormData({ ...formData, termsAndConditions: e.target.value })}
+                ></textarea>
+                <p className="text-xs text-slate-500">These terms will be printed at the bottom of Quotation documents.</p>
+              </div>
+            </div>
+          </div>
           <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
             {isSaved && (
               <span className="text-emerald-600 font-medium flex items-center gap-2">

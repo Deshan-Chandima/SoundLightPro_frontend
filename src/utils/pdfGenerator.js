@@ -2,7 +2,29 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
-export const generateInvoicePDF = (order, settings, docType = null) => {
+export const formatTerms = (text) => {
+    if (!text) return '';
+    const cleanedText = text.replace(/^Terms and Conditions:?\s*\n?/i, '');
+    const lines = cleanedText.split('\n');
+    let formatted = '';
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) {
+            formatted += '\n\n';
+            continue;
+        }
+
+        if (/^(\*|-|•|\d+\.)/i.test(line) || formatted === '' || formatted.endsWith('\n\n')) {
+            formatted += (formatted && !formatted.endsWith('\n') ? '\n' : '') + line;
+        } else {
+            formatted += ' ' + line;
+        }
+    }
+    return formatted.replace(/\n{3,}/g, '\n\n').trim();
+};
+
+export const generateInvoicePDF = (order, settings, docType = null, currentUser = null, equipment = []) => {
     try {
         const doc = new jsPDF();
         const safeSettings = settings || {};
@@ -78,12 +100,12 @@ export const generateInvoicePDF = (order, settings, docType = null) => {
         doc.text(`Email: ${safeSettings.email || ''}`, 14, compY + addressHeightComp + 4);
 
         // Billed To section starts lower to clear company details and logo
-        let currentY = 80;
+        let currentY = 65;
 
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('BILLED TO:', 14, currentY);
+        doc.text(isQuotation ? 'CUSTOMER DETAILS:' : 'BILLED TO:', 14, currentY);
         doc.setFont('helvetica', 'normal');
         currentY += 5;
         doc.text(order.customerName, 14, currentY);
@@ -100,17 +122,15 @@ export const generateInvoicePDF = (order, settings, docType = null) => {
             doc.setFont('helvetica', 'normal');
             currentY += 5;
         }
-        doc.setFontSize(8);
-        doc.text(`Customer ID: ${order.customerId}`, 14, currentY);
         doc.setFontSize(10);
 
-        const tableStartY = Math.max(currentY + 10, 110);
+        const tableStartY = Math.max(currentY + 5, 95);
 
         doc.setFont('helvetica', 'bold');
-        doc.text('RENTAL PERIOD:', 140, 80);
+        doc.text('RENTAL PERIOD:', 140, 65);
         doc.setFont('helvetica', 'normal');
-        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 85);
-        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 90);
+        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 70);
+        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 75);
 
         const isReturned = order.status === 'Returned' && order.returnDate;
         const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)));
@@ -120,29 +140,75 @@ export const generateInvoicePDF = (order, settings, docType = null) => {
 
         const durationDays = actualDuration;
 
-        const tableData = order.items.map(item => [
-            item.name,
-            item.quantity.toString(),
-            `${currency}${parseFloat(item.pricePerUnit || 0).toFixed(2)}`,
-            `${currency}${(parseFloat(item.pricePerUnit || 0) * item.quantity * durationDays).toFixed(2)}`
-        ]);
+        const groupedItems = {};
+        order.items.forEach(item => {
+            let cat = item.category;
+            if (!cat || cat.toUpperCase() === 'OTHER') {
+                const eq = equipment?.find(e => e.id === item.equipmentId);
+                if (eq && eq.category) {
+                    cat = eq.category;
+                } else {
+                    cat = 'OTHER';
+                }
+            }
+            cat = cat.toUpperCase();
+
+            if (!groupedItems[cat]) groupedItems[cat] = { items: [], total: 0 };
+            groupedItems[cat].items.push(item);
+            groupedItems[cat].total += (Number(item.pricePerUnit || item.totalPrice || 0) * Number(item.quantity || 1) * durationDays);
+        });
+
+        const tableData = [];
+        Object.entries(groupedItems).forEach(([category, data]) => {
+            tableData.push([
+                {
+                    content: category,
+                    colSpan: 3,
+                    styles: { halign: 'center', fontStyle: 'bold', fillColor: [210, 210, 210] }
+                },
+                {
+                    content: parseFloat(data.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    rowSpan: data.items.length + 1,
+                    styles: { halign: 'center', valign: 'middle', fontStyle: 'bold', fillColor: [255, 255, 255] }
+                }
+            ]);
+
+            data.items.forEach(item => {
+                tableData.push([
+                    '',
+                    item.name,
+                    item.quantity.toString()
+                ]);
+            });
+        });
 
         autoTable(doc, {
             startY: tableStartY,
-            head: [['Equipment Name', 'Qty', 'Price/Day', `Total (${durationDays} Days)`]],
+            head: [['#', 'ITEMS', 'QTY', 'Amount']],
             body: tableData,
-            headStyles: { fillColor: [51, 65, 85] },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
+            theme: 'grid',
+            headStyles: { fillColor: [181, 229, 34], textColor: [0, 0, 0], halign: 'center', lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: {
+                lineColor: [0, 0, 0],
+                lineWidth: 0.1,
+                textColor: [15, 23, 42]
+            },
+            columnStyles: {
+                0: { cellWidth: 15, halign: 'center' },
+                1: { cellWidth: 'auto', fontStyle: 'bold' },
+                2: { cellWidth: 20, halign: 'center' },
+                3: { cellWidth: 40, halign: 'center', valign: 'middle' }
+            }
         });
 
         const finalY = doc.lastAutoTable?.finalY || tableStartY + 20;
 
         const leftX = 140;
-        currentY = finalY + 10;
+        currentY = finalY + 5;
 
         // Calculate required space for footer (totals + signatures + notes)
         // Approximate height needed: ~80-100 units depending on content
-        const requiredFooterHeight = 100;
+        const requiredFooterHeight = 90;
 
         if (currentY + requiredFooterHeight > 280) {
             doc.addPage();
@@ -201,18 +267,78 @@ export const generateInvoicePDF = (order, settings, docType = null) => {
             doc.setFont('helvetica', 'bold');
             doc.text('BALANCE DUE', leftX, currentY + 8);
             doc.setFontSize(14);
-            doc.text(`${settings.currency}${order.balanceAmount}`, 190, currentY + 8, { align: 'right' });
+            doc.text(`${settings.currency}${parseFloat(order.balanceAmount || 0).toFixed(2)}`, 190, currentY + 8, { align: 'right' });
             doc.setTextColor(0, 0, 0);
+
+            // Print Bank Details on Invoice
+            currentY = Math.max(currentY + 20, 230);
+            if (safeSettings.bankDetails) {
+                const lines = doc.splitTextToSize(safeSettings.bankDetails, 120);
+                if (currentY + (lines.length * 4) > 270) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text(lines, 14, currentY); // Already aligned to left margin '14'
+                currentY += lines.length * 5;
+            }
         } else {
             currentY += 10;
             doc.setFontSize(12);
             doc.setFont('helvetica', 'bold');
             doc.text('Grand Total:', leftX, currentY);
             doc.text(`${currency}${parseFloat(order.totalAmount || 0).toFixed(2)}`, 190, currentY, { align: 'right' });
+
+            // Print Terms and Conditions on Quotation
+            let termsY = currentY + 15;
+            if (safeSettings.termsAndConditions) {
+                const formattedTerms = formatTerms(safeSettings.termsAndConditions);
+                const paragraphs = formattedTerms.split('\n');
+
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                const totalLines = doc.splitTextToSize(formattedTerms, 182);
+
+                if (termsY + (totalLines.length * 4) + 10 > 270) {
+                    doc.addPage();
+                    termsY = 20;
+                }
+
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text("Terms and Conditions:", 14, termsY);
+                termsY += 8;
+
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+
+                paragraphs.forEach(p => {
+                    if (!p.trim()) {
+                        termsY += 4;
+                        return;
+                    }
+                    const plines = doc.splitTextToSize(p, 182);
+                    for (let i = 0; i < plines.length; i++) {
+                        if (i === plines.length - 1) {
+                            // Last line of paragraph should be left aligned to avoid stretching
+                            doc.text(plines[i], 14, termsY, { align: 'left' });
+                        } else {
+                            // Internal paragraph lines stretch justification
+                            doc.text(plines[i], 14, termsY, { align: 'justify', maxWidth: 182 });
+                        }
+                        termsY += 4;
+                    }
+                });
+
+                currentY = termsY;
+            }
         }
 
         if (order.items.some(i => (i.replacementCost || 0) > 0)) {
-            currentY += 20;
+            currentY += 10;
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(185, 28, 28);
@@ -225,10 +351,58 @@ export const generateInvoicePDF = (order, settings, docType = null) => {
             });
         }
 
-        doc.setFontSize(8);
+        // Print Signature Block (Only for Quotations)
+        if (isQuotation) {
+            // Calculate Y position to be always near the bottom, but above the footer text
+            let signatureY = currentY + 15;
+            if (signatureY > 215) {
+                doc.addPage();
+                signatureY = 30;
+            } else {
+                signatureY = 210; // Pin it to the bottom area if there's room, higher up than before
+            }
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            doc.text("Best Regards,", 14, signatureY);
+            doc.text(`On behalf of ${companyName}.`, 14, signatureY + 5);
+
+            // Draw signature line
+            doc.setDrawColor(50, 50, 50);
+            doc.line(14, signatureY + 15, 64, signatureY + 15);
+
+            // Print Signature Image if available
+            if (currentUser?.signature) {
+                try {
+                    // Determine image type (png or jpeg)
+                    const isPng = currentUser.signature.includes('image/png');
+                    const imageType = isPng ? 'PNG' : 'JPEG';
+                    // Adjust dimensions to fit nicely above the line
+                    doc.addImage(currentUser.signature, imageType, 14, signatureY - 5, 40, 20);
+                } catch (err) {
+                    console.warn('Failed to render user signature image:', err);
+                }
+            }
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
+            const signatureName = currentUser?.name || currentUser?.username || 'AUTHORIZED SIGNATORY';
+            doc.text(signatureName.toUpperCase(), 14, signatureY + 20);
+        }
+
+
+        // Centered Footer Message
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
         doc.setTextColor(150, 150, 150);
-        doc.text(`Thank you for choosing ${companyName}!`, 105, 280, { align: 'center' });
-        doc.text('This is a computer generated document.', 105, 285, { align: 'center' });
+
+        const footerMessage = isQuotation
+            ? `Thank you for choosing ${companyName}!`
+            : 'Thank You For Your Business.';
+
+        doc.text(footerMessage, 105, 280, { align: 'center' });
 
         return doc;
     } catch (error) {
@@ -238,7 +412,7 @@ export const generateInvoicePDF = (order, settings, docType = null) => {
     }
 };
 
-export const generateTicketPDF = (order, settings) => {
+export const generateTicketPDF = (order, settings, equipment = []) => {
     try {
         const doc = new jsPDF();
         const safeSettings = settings || {};
@@ -267,10 +441,10 @@ export const generateTicketPDF = (order, settings) => {
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('DELIVER TO:', 14, 55);
+        doc.text('DELIVER TO:', 14, 45);
         doc.setFont('helvetica', 'normal');
-        doc.text(order.customerName, 14, 60);
-        let currentY = 65;
+        doc.text(order.customerName, 14, 50);
+        let currentY = 55;
         if (order.customerAddress) {
             const splitAddress = doc.splitTextToSize(order.customerAddress, 80);
             doc.text(splitAddress, 14, currentY);
@@ -279,15 +453,15 @@ export const generateTicketPDF = (order, settings) => {
 
         doc.setFontSize(8);
         doc.text(`Customer Contact: ${order.customerPhone || 'N/A'}`, 14, currentY);
-        currentY += 10;
+        currentY += 5;
 
-        const tableStartY = Math.max(currentY + 10, 80);
+        const tableStartY = Math.max(currentY + 5, 75);
 
         doc.setFont('helvetica', 'bold');
-        doc.text('RENTAL PERIOD:', 140, 55);
+        doc.text('RENTAL PERIOD:', 140, 45);
         doc.setFont('helvetica', 'normal');
-        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 60);
-        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 65);
+        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 50);
+        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 55);
 
         const isReturned = order.status === 'Returned' && order.returnDate;
         const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)));
@@ -296,13 +470,43 @@ export const generateTicketPDF = (order, settings) => {
             : originalDuration;
         const durationDays = actualDuration;
 
-        doc.text(`Duration: ${durationDays} Days`, 140, 70);
+        doc.text(`Duration: ${durationDays} Days`, 140, 60);
 
-        const tableData = order.items.map(item => [
-            item.name,
-            item.quantity.toString(),
-            "_______"
-        ]);
+        const groupedItems = {};
+        order.items.forEach(item => {
+            let cat = item.category;
+            if (!cat || cat.toUpperCase() === 'OTHER') {
+                const eq = equipment?.find(e => e.id === item.equipmentId);
+                if (eq && eq.category) {
+                    cat = eq.category;
+                } else {
+                    cat = 'OTHER';
+                }
+            }
+            cat = cat.toUpperCase();
+
+            if (!groupedItems[cat]) groupedItems[cat] = { items: [] };
+            groupedItems[cat].items.push(item);
+        });
+
+        const tableData = [];
+        Object.entries(groupedItems).forEach(([category, data]) => {
+            tableData.push([
+                {
+                    content: category,
+                    colSpan: 3,
+                    styles: { halign: 'center', fontStyle: 'bold', fillColor: [210, 210, 210], textColor: [0, 0, 0] }
+                }
+            ]);
+
+            data.items.forEach(item => {
+                tableData.push([
+                    item.name,
+                    item.quantity.toString(),
+                    "_______"
+                ]);
+            });
+        });
 
         autoTable(doc, {
             startY: tableStartY,
