@@ -140,6 +140,26 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
 
         const durationDays = actualDuration;
 
+        let displayLateFee = parseFloat(order.lateFee) || 0;
+        if (order.status === 'Active') {
+            if (order.isLateFeeManual) {
+                displayLateFee = parseFloat(order.lateFee) || 0;
+            } else {
+                const today = new Date();
+                const endDateObj = parseISO(order.endDate);
+                const daysOverdue = differenceInDays(today, endDateObj);
+                if (daysOverdue > 0) {
+                    const startDateObj = parseISO(order.startDate);
+                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                    const dailyRate = (parseFloat(order.subtotalAmount) || 0) / duration;
+                    displayLateFee = Math.ceil(dailyRate * daysOverdue);
+                }
+            }
+        }
+
+        const savedLateFee = parseFloat(order.lateFee) || 0;
+        const displayBalanceAmount = (parseFloat(order.balanceAmount) || 0) - savedLateFee + displayLateFee;
+
         const groupedItems = {};
         order.items.forEach(item => {
             let cat = item.category;
@@ -236,11 +256,11 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
         doc.text(`+${currency}${parseFloat(order.taxAmount || 0).toFixed(2)}`, 190, currentY, { align: 'right' });
 
         if (!isQuotation) {
-            if (order.lateFee > 0) {
+            if (displayLateFee > 0) {
                 currentY += 7;
                 doc.setTextColor(220, 38, 38);
                 doc.text('Late Charges:', leftX, currentY);
-                doc.text(`+${currency}${parseFloat(order.lateFee || 0).toFixed(2)}`, 190, currentY, { align: 'right' });
+                doc.text(`+${currency}${displayLateFee.toFixed(2)}`, 190, currentY, { align: 'right' });
                 doc.setTextColor(0, 0, 0);
             }
 
@@ -267,7 +287,7 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
             doc.setFont('helvetica', 'bold');
             doc.text('BALANCE DUE', leftX, currentY + 8);
             doc.setFontSize(14);
-            doc.text(`${settings.currency}${parseFloat(order.balanceAmount || 0).toFixed(2)}`, 190, currentY + 8, { align: 'right' });
+            doc.text(`${settings.currency}${displayBalanceAmount.toFixed(2)}`, 190, currentY + 8, { align: 'right' });
             doc.setTextColor(0, 0, 0);
 
             // Print Bank Details on Invoice
@@ -355,11 +375,11 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
         if (isQuotation) {
             // Calculate Y position to be always near the bottom, but above the footer text
             let signatureY = currentY + 15;
-            if (signatureY > 215) {
+            if (signatureY > 250) {
                 doc.addPage();
                 signatureY = 30;
             } else {
-                signatureY = 210; // Pin it to the bottom area if there's room, higher up than before
+                signatureY = Math.max(signatureY, 210); // Pin it to the bottom area if there's room, otherwise use currentY + 15
             }
 
             doc.setFontSize(9);
@@ -368,9 +388,9 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
             doc.text("Best Regards,", 14, signatureY);
             doc.text(`On behalf of ${companyName}.`, 14, signatureY + 5);
 
-            // Draw signature line
-            doc.setDrawColor(50, 50, 50);
-            doc.line(14, signatureY + 15, 64, signatureY + 15);
+            // Draw signature line (removed per request, keeping space)
+            // doc.setDrawColor(50, 50, 50);
+            // doc.line(14, signatureY + 15, 64, signatureY + 15);
 
             // Print Signature Image if available
             if (currentUser?.signature) {

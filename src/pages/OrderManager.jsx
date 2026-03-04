@@ -229,10 +229,12 @@ const OrderManager = ({
         const daysOverdue = differenceInDays(today, endDate);
         setDaysLate(Math.max(0, daysOverdue));
 
-        if (daysOverdue > 0) {
+        if (order.isLateFeeManual) {
+            setLateFee(Number(order.lateFee) || 0);
+        } else if (daysOverdue > 0) {
             const startDate = parseISO(order.startDate);
             const duration = Math.max(1, differenceInDays(endDate, startDate));
-            const dailyRate = order.totalAmount / duration;
+            const dailyRate = order.subtotalAmount / duration;
             setLateFee(Math.ceil(dailyRate * daysOverdue));
         } else {
             setLateFee(0);
@@ -418,23 +420,28 @@ const OrderManager = ({
         // Calculate Late Fee Automatically
         let calculatedLateFee = Number(order.lateFee) || 0;
         if (order.status === 'Active') {
-            const today = new Date();
-            const endDateObj = parseISO(order.endDate);
-            const daysOverdue = differenceInDays(today, endDateObj);
-
-            if (daysOverdue > 0) {
-                const startDateObj = parseISO(order.startDate);
-                const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
-                const dailyRate = order.subtotalAmount / duration;
-                calculatedLateFee = Math.ceil(dailyRate * daysOverdue);
+            if (order.isLateFeeManual) {
+                calculatedLateFee = Number(order.lateFee) || 0;
             } else {
-                calculatedLateFee = 0;
+                const today = new Date();
+                const endDateObj = parseISO(order.endDate);
+                const daysOverdue = differenceInDays(today, endDateObj);
+
+                if (daysOverdue > 0) {
+                    const startDateObj = parseISO(order.startDate);
+                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                    const dailyRate = order.subtotalAmount / duration;
+                    calculatedLateFee = Math.ceil(dailyRate * daysOverdue);
+                } else {
+                    calculatedLateFee = 0;
+                }
             }
         }
 
         setUpdateFormData({
             additionalPayment: 0,
             lateFee: calculatedLateFee,
+            isLateFeeManual: order.isLateFeeManual || false,
             damageFee: Number(order.damageFee) || 0,
             notes: order.notes || '',
             startDate: sDate,
@@ -480,6 +487,7 @@ const OrderManager = ({
                 totalAmount,
                 paidAmount: newPaidAmount,
                 lateFee,
+                isLateFeeManual: updateFormData.isLateFeeManual !== undefined ? updateFormData.isLateFeeManual : updatingOrder.isLateFeeManual,
                 damageFee,
                 notes: updateFormData.notes,
                 balanceAmount: totalWithFees - newPaidAmount
@@ -650,7 +658,10 @@ const OrderManager = ({
                                             let showLateBadge = false;
 
                                             if (order.status === 'Active') {
-                                                if (daysOverdue > 0) {
+                                                if (order.isLateFeeManual) {
+                                                    currentLateFee = Number(order.lateFee) || 0;
+                                                    showLateBadge = currentLateFee > 0;
+                                                } else if (daysOverdue > 0) {
                                                     const startDateObj = parseISO(order.startDate);
                                                     const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
                                                     const dailyRate = order.subtotalAmount / duration;
@@ -670,8 +681,13 @@ const OrderManager = ({
                                                         Bal: {settings.currency}{totalBalance.toFixed(2)}
                                                     </p>
                                                     {showLateBadge && currentLateFee > 0 && (
-                                                        <span className="text-[10px] text-amber-600 font-bold">
+                                                        <span className="text-[10px] text-amber-600 font-bold mt-0.5">
                                                             (incl. {settings.currency}{currentLateFee} late fee)
+                                                        </span>
+                                                    )}
+                                                    {Number(order.damageFee) > 0 && (
+                                                        <span className="text-[10px] text-rose-600 font-bold mt-0.5">
+                                                            (incl. {settings.currency}{Number(order.damageFee).toFixed(2)} damage fee)
                                                         </span>
                                                     )}
                                                 </div>
@@ -871,9 +887,12 @@ const OrderManager = ({
                                         value=""
                                     >
                                         <option value="">Choose equipment...</option>
-                                        {equipment.filter(e => e.availableQuantity > 0).map(e => (
-                                            <option key={e.id} value={e.id}>{e.name} ({settings.currency}{e.pricePerDay}/day - {e.availableQuantity} left)</option>
-                                        ))}
+                                        {equipment.filter(e => Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0)) > 0).map(e => {
+                                            const rentable = Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0));
+                                            return (
+                                                <option key={e.id} value={e.id}>{e.name} ({settings.currency}{e.pricePerDay}/day - {rentable} left)</option>
+                                            );
+                                        })}
                                     </select>
                                 </div>
 
@@ -903,7 +922,8 @@ const OrderManager = ({
                                                                 onChange={(e) => {
                                                                     const eq = equipment.find(e => e.id === item.equipmentId);
                                                                     const val = Math.max(1, Number(e.target.value));
-                                                                    const finalVal = eq ? Math.min(val, eq.availableQuantity) : val;
+                                                                    const rentable = eq ? Math.min(eq.availableQuantity, eq.totalQuantity - (eq.damagedQuantity || 0)) : 0;
+                                                                    const finalVal = Math.min(val, rentable || val);
 
                                                                     setRentalItems(prev => prev.map(ri =>
                                                                         ri.equipmentId === item.equipmentId
@@ -1032,20 +1052,27 @@ const OrderManager = ({
                                                             className="w-full mt-1 border rounded p-2"
                                                             value={returnCounts[item.equipmentId]?.good ?? remaining}
                                                             onChange={(e) => {
+                                                                const val = e.target.value === '' ? '' : parseInt(e.target.value);
+                                                                const newGood = val === '' ? 0 : Math.max(0, val);
+                                                                const currentDamaged = Number(returnCounts[item.equipmentId]?.damaged) || 0;
+
+                                                                const actualGood = Math.min(newGood, remaining);
+                                                                let actualDamaged = currentDamaged;
+                                                                if (actualGood + actualDamaged > remaining) {
+                                                                    actualDamaged = remaining - actualGood;
+                                                                }
+
                                                                 const equipmentItem = equipment.find(eq => eq.id === item.equipmentId);
                                                                 const unitValue = equipmentItem ? Number(equipmentItem.value) : (Number(item.value) || 0);
 
-                                                                const good = Math.min(remaining, Math.max(0, parseInt(e.target.value) || 0));
-                                                                const damaged = remaining - good;
-
                                                                 setReturnCounts(prev => ({
                                                                     ...prev,
-                                                                    [item.equipmentId]: { good, damaged, remaining }
+                                                                    [item.equipmentId]: { good: val === '' ? '' : actualGood, damaged: actualDamaged, remaining }
                                                                 }));
 
                                                                 setReturnReplacementCosts(prev => ({
                                                                     ...prev,
-                                                                    [item.equipmentId]: damaged * unitValue
+                                                                    [item.equipmentId]: actualDamaged * unitValue
                                                                 }));
                                                             }}
                                                         />
@@ -1054,9 +1081,31 @@ const OrderManager = ({
                                                         <label className="text-xs font-semibold uppercase text-red-500">Damaged/Lost</label>
                                                         <input
                                                             type="number"
-                                                            readOnly
-                                                            className="w-full mt-1 border rounded p-2 bg-red-50 text-red-600 font-bold"
+                                                            min="0"
+                                                            max={remaining}
+                                                            className="w-full mt-1 border rounded p-2 bg-red-50 focus:ring-red-500 focus:outline-none focus:ring-2 border-red-200 text-red-600 font-bold"
                                                             value={returnCounts[item.equipmentId]?.damaged ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value === '' ? '' : parseInt(e.target.value);
+                                                                const newDamaged = val === '' ? 0 : Math.max(0, val);
+                                                                const currentGood = Number(returnCounts[item.equipmentId]?.good) || 0;
+
+                                                                const actualDamaged = Math.min(newDamaged, remaining);
+                                                                const actualGood = remaining - actualDamaged;
+
+                                                                const equipmentItem = equipment.find(eq => eq.id === item.equipmentId);
+                                                                const unitValue = equipmentItem ? Number(equipmentItem.value) : (Number(item.value) || 0);
+
+                                                                setReturnCounts(prev => ({
+                                                                    ...prev,
+                                                                    [item.equipmentId]: { good: actualGood, damaged: val === '' ? '' : actualDamaged, remaining }
+                                                                }));
+
+                                                                setReturnReplacementCosts(prev => ({
+                                                                    ...prev,
+                                                                    [item.equipmentId]: actualDamaged * unitValue
+                                                                }));
+                                                            }}
                                                         />
                                                     </div>
                                                 </div>
@@ -1099,12 +1148,12 @@ const OrderManager = ({
                                 <p className="text-sm text-amber-700">
                                     Enter manual fine for delay or leave as calculated.
                                 </p>
-                                <div className="relative w-32">
+                                <div className="relative w-40">
                                     <span className="absolute left-3 top-2 text-amber-600 font-bold">{settings.currency}</span>
                                     <input
                                         type="number"
                                         min="0"
-                                        className="w-full pl-8 pr-3 py-1.5 border border-amber-200 rounded-lg font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none"
+                                        className="w-full pl-14 pr-3 py-1.5 border border-amber-200 rounded-lg font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none"
                                         value={lateFee}
                                         onChange={(e) => setLateFee(parseFloat(e.target.value) || 0)}
                                     />
@@ -1176,7 +1225,7 @@ const OrderManager = ({
                                                 onChange={(e) => {
                                                     const newEndDate = e.target.value;
                                                     let newLateFee = updateFormData.lateFee;
-                                                    if (updatingOrder?.status === 'Active') {
+                                                    if (updatingOrder?.status === 'Active' && !updateFormData.isLateFeeManual) {
                                                         const today = new Date();
                                                         const endDateObj = parseISO(newEndDate);
                                                         const daysOverdue = differenceInDays(today, endDateObj);
@@ -1201,10 +1250,11 @@ const OrderManager = ({
                                                 const equipId = e.target.value;
                                                 if (!equipId) return;
                                                 const item = equipment.find(eq => eq.id === equipId);
-                                                if (item && item.availableQuantity > 0) {
+                                                const rentable = item ? Math.min(item.availableQuantity, item.totalQuantity - (item.damagedQuantity || 0)) : 0;
+                                                if (item && rentable > 0) {
                                                     const existing = updateFormData.items.find(ri => ri.equipmentId === equipId);
                                                     if (existing) {
-                                                        if (existing.quantity >= item.availableQuantity + (updatingOrder.items.find(o => o.equipmentId === equipId)?.quantity || 0)) {
+                                                        if (existing.quantity >= rentable + (updatingOrder.items.find(o => o.equipmentId === equipId)?.quantity || 0)) {
                                                             alert(`Not enough stock.`);
                                                             return;
                                                         }
@@ -1237,7 +1287,8 @@ const OrderManager = ({
                                             {equipment.map(e => {
 
                                                 const inCurrentOrder = updatingOrder.status === 'Active' ? (updatingOrder.items.find(oi => oi.equipmentId === e.id)?.quantity || 0) : 0;
-                                                const totalAvail = e.availableQuantity + inCurrentOrder;
+                                                const baseRentable = Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0));
+                                                const totalAvail = baseRentable + inCurrentOrder;
                                                 if (totalAvail <= 0) return null;
                                                 return (
                                                     <option key={e.id} value={e.id}>{e.name} ({settings.currency}{e.pricePerDay}/day - {totalAvail} available)</option>
@@ -1270,7 +1321,8 @@ const OrderManager = ({
                                                                     const eq = equipment.find(e => e.id === item.equipmentId);
                                                                     const val = Math.max(1, Number(e.target.value));
                                                                     const inCurrentOrder = updatingOrder.status === 'Active' ? (updatingOrder.items.find(oi => oi.equipmentId === item.equipmentId)?.quantity || 0) : 0;
-                                                                    const totalAvail = eq ? eq.availableQuantity + inCurrentOrder : val;
+                                                                    const baseRentable = eq ? Math.min(eq.availableQuantity, eq.totalQuantity - (eq.damagedQuantity || 0)) : 0;
+                                                                    const totalAvail = eq ? baseRentable + inCurrentOrder : val;
                                                                     const finalVal = Math.min(val, totalAvail);
 
                                                                     setUpdateFormData({
@@ -1328,9 +1380,9 @@ const OrderManager = ({
                                         </div>
                                         <input
                                             type="number"
-                                            className="w-full pl-9 pr-3 py-2 bg-amber-50 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 font-bold text-amber-700 transition-all"
+                                            className="w-full pl-14 pr-3 py-2 bg-amber-50 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 font-bold text-amber-700 transition-all"
                                             value={updateFormData.lateFee}
-                                            onChange={e => setUpdateFormData({ ...updateFormData, lateFee: Number(e.target.value) })}
+                                            onChange={e => setUpdateFormData({ ...updateFormData, lateFee: Number(e.target.value), isLateFeeManual: true })}
                                         />
                                     </div>
                                 </div>
@@ -1343,7 +1395,7 @@ const OrderManager = ({
                                         </div>
                                         <input
                                             type="number"
-                                            className="w-full pl-9 pr-3 py-2 bg-rose-50 border border-rose-200 rounded-lg outline-none focus:ring-2 focus:ring-rose-500 font-bold text-rose-700 transition-all"
+                                            className="w-full pl-14 pr-3 py-2 bg-rose-50 border border-rose-200 rounded-lg outline-none focus:ring-2 focus:ring-rose-500 font-bold text-rose-700 transition-all"
                                             value={updateFormData.damageFee}
                                             onChange={e => setUpdateFormData({ ...updateFormData, damageFee: Number(e.target.value) })}
                                         />

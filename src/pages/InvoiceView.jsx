@@ -21,7 +21,12 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
 
     const handleDownloadTicket = () => {
         try {
-            const doc = generateTicketPDF(order, settings, equipment);
+            // Attach customer phone from the full customer object if not present on order
+            const orderWithPhone = {
+                ...order,
+                customerPhone: order.customerPhone || customer?.phone || ''
+            };
+            const doc = generateTicketPDF(orderWithPhone, settings, equipment);
             doc.save(`Ticket_${order.id || 'draft'}.pdf`);
         } catch (error) {
             console.error('Error downloading Ticket:', error);
@@ -73,6 +78,26 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
 
     const durationDays = actualDuration;
     const currency = settings.currency || 'AED';
+
+    let displayLateFee = parseFloat(order.lateFee) || 0;
+    if (order.status === 'Active') {
+        if (order.isLateFeeManual) {
+            displayLateFee = parseFloat(order.lateFee) || 0;
+        } else {
+            const today = new Date();
+            const endDateObj = parseISO(order.endDate);
+            const daysOverdue = differenceInDays(today, endDateObj);
+            if (daysOverdue > 0) {
+                const startDateObj = parseISO(order.startDate);
+                const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                const dailyRate = (parseFloat(order.subtotalAmount) || 0) / duration;
+                displayLateFee = Math.ceil(dailyRate * daysOverdue);
+            }
+        }
+    }
+
+    const savedLateFee = parseFloat(order.lateFee) || 0;
+    const displayBalanceAmount = (parseFloat(order.balanceAmount) || 0) - savedLateFee + displayLateFee;
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-start justify-center p-4 print:p-0 print:bg-white print:overflow-visible print:static print:block">
@@ -180,7 +205,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                 <div className="border-t border-slate-100 mx-12"></div>
 
 
-                <div className="p-12 py-8 grid grid-cols-2 gap-12">
+                <div className="p-12 py-8 grid grid-cols-2 gap-12 print:break-inside-avoid">
                     <div>
                         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
                             {order.status === 'Quotation' ? 'Customer Details' : 'Billed To'}
@@ -257,7 +282,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                                         {data.items.map((item, idx) => {
                                             const isLastInCategory = idx === data.items.length - 1;
                                             return (
-                                                <tr key={idx} className={`last:border-0 hover:bg-slate-50 transition-colors ${isLastInCategory ? 'border-b-2 border-slate-900' : 'border-b border-slate-300'}`}>
+                                                <tr key={idx} className={`last:border-0 hover:bg-slate-50 transition-colors ${isLastInCategory ? 'border-b-2 border-slate-900' : 'border-b border-slate-300'} print:break-inside-avoid`}>
                                                     <td className="py-1 px-2 text-sm text-slate-900 font-bold text-center border-r-2 border-slate-900">{/* Empty index column to match the picture style or just use global index? The picture has empty first column for indices, wait, no it is empty in picture, but let's keep it empty or remove index for cleaner look. Let's leave it blank or just remove text. Actually let's just leave it blank to perfectly match the photo. */}</td>
                                                     <td className="py-1 px-4 text-sm text-slate-900 font-medium border-r-2 border-slate-900">{item.name}</td>
                                                     <td className="py-1 px-2 text-sm text-slate-900 font-medium text-center border-r-2 border-slate-900">{item.quantity}</td>
@@ -272,7 +297,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                 </div>
 
 
-                <div className="px-12 pb-12 mt-8">
+                <div className="px-12 pb-12 mt-8 print:break-inside-avoid">
                     <div className="flex justify-end">
                         <div className="w-1/2 max-w-sm space-y-3">
                             <div className="flex justify-between items-center text-slate-500 text-sm font-medium">
@@ -297,10 +322,17 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
 
                             {order.status !== 'Quotation' ? (
                                 <>
-                                    {(parseFloat(order.lateFee) > 0) && (
+                                    {(displayLateFee > 0) && (
                                         <div className="flex justify-between items-center text-red-600 text-sm font-medium">
                                             <span>Late Fees:</span>
-                                            <span className="font-bold">+{currency}{parseFloat(order.lateFee).toFixed(2)}</span>
+                                            <span className="font-bold">+{currency}{displayLateFee.toFixed(2)}</span>
+                                        </div>
+                                    )}
+
+                                    {parseFloat(order.damageFee) > 0 && (
+                                        <div className="flex justify-between items-center text-rose-600 text-sm font-medium">
+                                            <span>Damage Fees:</span>
+                                            <span className="font-bold">+{currency}{parseFloat(order.damageFee).toFixed(2)}</span>
                                         </div>
                                     )}
 
@@ -314,7 +346,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                                     <div className="mt-4 pt-4">
                                         <div className="bg-slate-900 text-white p-4 rounded-lg flex justify-between items-center shadow-lg">
                                             <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Balance Due</span>
-                                            <span className="text-2xl font-black">{currency}{parseFloat(order.balanceAmount || 0).toFixed(2)}</span>
+                                            <span className="text-2xl font-black">{currency}{displayBalanceAmount.toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </>
@@ -334,7 +366,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                 <div className="mt-auto">
                     {/* Bank Details (Invoice Only) */}
                     {order.status !== 'Quotation' && settings.bankDetails && (
-                        <div className="mt-12 text-left px-12">
+                        <div className="mt-12 text-left px-12 print:break-inside-avoid">
                             <div className="text-sm text-slate-900 whitespace-pre-line font-bold leading-relaxed">
                                 {settings.bankDetails}
                             </div>
@@ -343,7 +375,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
 
                     {/* Terms and Conditions (Quotation Only) */}
                     {order.status === 'Quotation' && settings.termsAndConditions && (
-                        <div className="mt-16 text-left border-t border-slate-100 pt-8 px-12">
+                        <div className="mt-16 text-left border-t border-slate-100 pt-8 px-12 print:break-inside-avoid">
                             <h4 className="text-sm font-bold text-slate-900 mb-4">Terms and Conditions:</h4>
                             <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed text-justify">
                                 {formatTerms(settings.termsAndConditions)}
@@ -351,14 +383,14 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                         </div>
                     )}
 
-                    <div className="mt-16 pt-8 border-t border-slate-100 px-12 pb-8">
+                    <div className="mt-16 pt-8 border-t border-slate-100 px-12 pb-8 print:break-inside-avoid">
                         {order.status === 'Quotation' && (
                             <div className="text-left w-1/2 mb-12">
                                 <p className="text-slate-700 text-sm mb-4">
                                     Best Regards,<br />
                                     On behalf of {settings.companyName}.
                                 </p>
-                                <div className="mt-12 w-48 border-b-2 border-slate-800"></div>
+                                <div className="mt-12 w-48"></div>
                                 <p className="text-slate-900 font-bold tracking-widest uppercase mt-4 text-xs">
                                     {currentUser?.name || currentUser?.username || 'AUTHORIZED SIGNATORY'}
                                 </p>

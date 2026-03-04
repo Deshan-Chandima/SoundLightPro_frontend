@@ -99,7 +99,14 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
 
     try {
       if (editingItem) {
-        const updatedItem = { ...editingItem, ...formData };
+        const rentedOut = Math.max(0, editingItem.totalQuantity - (editingItem.damagedQuantity || 0) - editingItem.availableQuantity);
+        const newAvailableQuantity = Math.max(0, formData.totalQuantity - (formData.damagedQuantity || 0) - rentedOut);
+
+        const updatedItem = {
+          ...editingItem,
+          ...formData,
+          availableQuantity: newAvailableQuantity
+        };
         if (sqlMode) {
           const { api } = await import('../services/apiService');
           await api.updateEquipment(updatedItem);
@@ -110,7 +117,7 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
         const newItem = {
           ...formData,
           id: `EQ-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          availableQuantity: formData.totalQuantity || 0,
+          availableQuantity: Math.max(0, (formData.totalQuantity || 0) - (formData.damagedQuantity || 0)),
         };
         if (sqlMode) {
           const { api } = await import('../services/apiService');
