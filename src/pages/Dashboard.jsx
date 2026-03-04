@@ -16,7 +16,7 @@ const Dashboard = ({ equipment, customers, orders, settings }) => {
   const pendingPayments = orders.reduce((sum, o) => sum + (parseFloat(o.balanceAmount) || 0), 0);
 
   const upcomingReturnsCount = activeOrders.filter(o => {
-    const daysUntilDue = differenceInDays(parseISO(o.endDate), new Date());
+    const daysUntilDue = (differenceInDays(parseISO(o.endDate), new Date()) + 1);
     return daysUntilDue <= 3; // Due within 3 days or already overdue
   }).length;
 

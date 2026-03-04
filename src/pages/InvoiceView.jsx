@@ -71,12 +71,14 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
     if (!order) return <div className="p-10 text-center">Loading Invoice...</div>;
 
     const isReturned = order.status === 'Returned' && order.returnDate;
-    const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)));
+    const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)) + 1);
     const actualDuration = isReturned
-        ? Math.max(1, differenceInDays(parseISO(order.returnDate), parseISO(order.startDate)))
+        ? Math.max(1, differenceInDays(parseISO(order.returnDate), parseISO(order.startDate)) + 1)
         : originalDuration;
 
-    const durationDays = actualDuration;
+    // Use original duration for display on returned invoices if late return, 
+    // because extra days are handled via late fees.
+    const durationDays = (isReturned && actualDuration > originalDuration) ? originalDuration : actualDuration;
     const currency = settings.currency || 'AED';
 
     let displayLateFee = parseFloat(order.lateFee) || 0;
@@ -89,7 +91,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
             const daysOverdue = differenceInDays(today, endDateObj);
             if (daysOverdue > 0) {
                 const startDateObj = parseISO(order.startDate);
-                const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                const duration = Math.max(1, differenceInDays(endDateObj, startDateObj) + 1);
                 const dailyRate = (parseFloat(order.subtotalAmount) || 0) / duration;
                 displayLateFee = Math.ceil(dailyRate * daysOverdue);
             }

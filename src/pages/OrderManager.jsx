@@ -53,7 +53,7 @@ const OrderManager = ({
     const [daysLate, setDaysLate] = useState(0);
 
     const calculateSubtotal = () => {
-        const days = Math.max(1, differenceInDays(parseISO(endDate), parseISO(startDate)));
+        const days = Math.max(1, differenceInDays(parseISO(endDate), parseISO(startDate)) + 1);
         return rentalItems.reduce((sum, item) => sum + (item.totalPrice * days), 0);
     };
 
@@ -226,14 +226,14 @@ const OrderManager = ({
 
         const today = new Date();
         const endDate = parseISO(order.endDate);
-        const daysOverdue = differenceInDays(today, endDate);
+        const daysOverdue = differenceInDays(today, endDate) + 1;
         setDaysLate(Math.max(0, daysOverdue));
 
         if (order.isLateFeeManual) {
             setLateFee(Number(order.lateFee) || 0);
         } else if (daysOverdue > 0) {
             const startDate = parseISO(order.startDate);
-            const duration = Math.max(1, differenceInDays(endDate, startDate));
+            const duration = Math.max(1, differenceInDays(endDate, startDate) + 1);
             const dailyRate = order.subtotalAmount / duration;
             setLateFee(Math.ceil(dailyRate * daysOverdue));
         } else {
@@ -249,8 +249,8 @@ const OrderManager = ({
         const dueDate = parseISO(processingReturn.endDate);
 
 
-        const originalDuration = Math.max(1, differenceInDays(dueDate, startDate));
-        const actualDuration = Math.max(1, differenceInDays(today, startDate));
+        const originalDuration = Math.max(1, differenceInDays(dueDate, startDate) + 1);
+        const actualDuration = Math.max(1, differenceInDays(today, startDate) + 1);
 
 
         let subtotalAmount = processingReturn.subtotalAmount;
@@ -429,7 +429,7 @@ const OrderManager = ({
 
                 if (daysOverdue > 0) {
                     const startDateObj = parseISO(order.startDate);
-                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj) + 1);
                     const dailyRate = order.subtotalAmount / duration;
                     calculatedLateFee = Math.ceil(dailyRate * daysOverdue);
                 } else {
@@ -456,7 +456,7 @@ const OrderManager = ({
 
         try {
 
-            const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)));
+            const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)) + 1);
             const subtotalAmount = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0) * days), 0);
 
             const discountValue = Number(updatingOrder.discountValue) || 0;
@@ -649,7 +649,7 @@ const OrderManager = ({
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col text-xs">
                                         <span className="text-slate-600">{format(parseISO(order.startDate), 'MMM dd')} - {format(parseISO(order.endDate), 'MMM dd')}</span>
-                                        <span className="text-slate-400">{differenceInDays(parseISO(order.endDate), parseISO(order.startDate))} days</span>
+                                        <span className="text-slate-400">{differenceInDays(parseISO(order.endDate), parseISO(order.startDate)) + 1} days</span>
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
@@ -658,7 +658,7 @@ const OrderManager = ({
                                         {(() => {
                                             const today = new Date();
                                             const endDateObj = parseISO(order.endDate);
-                                            const daysOverdue = differenceInDays(today, endDateObj);
+                                            const daysOverdue = differenceInDays(today, endDateObj) + 1;
                                             let currentLateFee = Number(order.lateFee) || 0;
                                             let showLateBadge = false;
 
@@ -668,7 +668,7 @@ const OrderManager = ({
                                                     showLateBadge = currentLateFee > 0;
                                                 } else if (daysOverdue > 0) {
                                                     const startDateObj = parseISO(order.startDate);
-                                                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                                                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj) + 1);
                                                     const dailyRate = order.subtotalAmount / duration;
                                                     currentLateFee = Math.ceil(dailyRate * daysOverdue);
                                                     showLateBadge = true;
@@ -1233,7 +1233,7 @@ const OrderManager = ({
                                                     if (updatingOrder?.status === 'Active' && !updateFormData.isLateFeeManual) {
                                                         const today = new Date();
                                                         const endDateObj = parseISO(newEndDate);
-                                                        const daysOverdue = differenceInDays(today, endDateObj);
+                                                        const daysOverdue = differenceInDays(today, endDateObj) + 1;
                                                         if (daysOverdue > 0) {
                                                             const dailyRate = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0)), 0);
                                                             newLateFee = Math.ceil(dailyRate * daysOverdue);
@@ -1422,7 +1422,7 @@ const OrderManager = ({
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
 
                                 {(() => {
-                                    const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)));
+                                    const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)) + 1);
                                     const subtotal = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0) * days), 0);
                                     let totalAfterDiscount = subtotal;
                                     const discountVal = Number(updatingOrder.discountValue) || 0;

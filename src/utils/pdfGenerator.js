@@ -133,12 +133,14 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
         doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 75);
 
         const isReturned = order.status === 'Returned' && order.returnDate;
-        const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)));
+        const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)) + 1);
         const actualDuration = isReturned
-            ? Math.max(1, differenceInDays(parseISO(order.returnDate), parseISO(order.startDate)))
+            ? Math.max(1, differenceInDays(parseISO(order.returnDate), parseISO(order.startDate)) + 1)
             : originalDuration;
 
-        const durationDays = actualDuration;
+        // Use original duration for display on returned invoices if late return, 
+        // because extra days are handled via late fees.
+        const durationDays = (isReturned && actualDuration > originalDuration) ? originalDuration : actualDuration;
 
         let displayLateFee = parseFloat(order.lateFee) || 0;
         if (order.status === 'Active') {
@@ -150,7 +152,7 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
                 const daysOverdue = differenceInDays(today, endDateObj);
                 if (daysOverdue > 0) {
                     const startDateObj = parseISO(order.startDate);
-                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj));
+                    const duration = Math.max(1, differenceInDays(endDateObj, startDateObj) + 1);
                     const dailyRate = (parseFloat(order.subtotalAmount) || 0) / duration;
                     displayLateFee = Math.ceil(dailyRate * daysOverdue);
                 }
@@ -484,11 +486,11 @@ export const generateTicketPDF = (order, settings, equipment = []) => {
         doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 55);
 
         const isReturned = order.status === 'Returned' && order.returnDate;
-        const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)));
+        const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)) + 1);
         const actualDuration = isReturned
-            ? Math.max(1, differenceInDays(parseISO(order.returnDate), parseISO(order.startDate)))
+            ? Math.max(1, differenceInDays(parseISO(order.returnDate), parseISO(order.startDate)) + 1)
             : originalDuration;
-        const durationDays = actualDuration;
+        const durationDays = (isReturned && actualDuration > originalDuration) ? originalDuration : actualDuration;
 
         doc.text(`Duration: ${durationDays} Days`, 140, 60);
 
