@@ -553,6 +553,11 @@ const OrderManager = ({
         setRentalItems([]);
         setPaidAmount(0);
         setNotes('');
+        setDiscountType('percentage');
+        setDiscountValue(0);
+        setStartDate(format(new Date(), 'yyyy-MM-dd'));
+        setEndDate(format(new Date(), 'yyyy-MM-dd'));
+        setPaymentMethod('Cash');
     };
 
     const filteredOrders = orders.filter(o => {
