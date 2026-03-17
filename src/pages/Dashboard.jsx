@@ -12,11 +12,12 @@ import { cn } from '../utils/cn';
 
 const Dashboard = ({ equipment, customers, orders, settings }) => {
   const activeOrders = orders.filter(o => o.status === 'Active' || o.status === 'Partially Returned');
-  const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0) + (parseFloat(o.lateFee) || 0) + (parseFloat(o.damageFee) || 0), 0);
-  const pendingPayments = orders.reduce((sum, o) => sum + (parseFloat(o.balanceAmount) || 0), 0);
+  const nonQuotationOrders = orders.filter(o => o.status !== 'Quotation');
+  const totalRevenue = nonQuotationOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0) + (parseFloat(o.lateFee) || 0) + (parseFloat(o.damageFee) || 0), 0);
+  const pendingPayments = nonQuotationOrders.reduce((sum, o) => sum + (parseFloat(o.balanceAmount) || 0), 0);
 
   const upcomingReturnsCount = activeOrders.filter(o => {
-    const daysUntilDue = (differenceInDays(parseISO(o.endDate), new Date()) + 1);
+    const daysUntilDue = differenceInDays(parseISO(o.endDate), new Date());
     return daysUntilDue <= 3; // Due within 3 days or already overdue
   }).length;
 

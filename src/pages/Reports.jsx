@@ -12,10 +12,11 @@ import {
 import { cn } from '../utils/cn';
 
 const Reports = ({ orders, equipment, settings, expenses = [] }) => {
-  const totalSales = orders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0) + (parseFloat(o.lateFee) || 0) + (parseFloat(o.damageFee) || 0), 0);
+  const nonQuotationOrders = orders.filter(o => o.status !== 'Quotation');
+  const totalSales = nonQuotationOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0) + (parseFloat(o.lateFee) || 0) + (parseFloat(o.damageFee) || 0), 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
   const netProfit = totalSales - totalExpenses;
-  const collectedPayments = orders.reduce((sum, o) => sum + (parseFloat(o.paidAmount) || 0), 0);
+  const collectedPayments = nonQuotationOrders.reduce((sum, o) => sum + (parseFloat(o.paidAmount) || 0), 0);
   const pendingSales = totalSales - collectedPayments;
 
   const totalPhysicalItems = equipment.reduce((sum, item) => sum + (Number(item.totalQuantity) || 0), 0) || 1;
@@ -206,7 +207,7 @@ const Reports = ({ orders, equipment, settings, expenses = [] }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {orders.slice(0, 10).map((o) => (
+              {nonQuotationOrders.slice(0, 10).map((o) => (
                 <tr key={o.id}>
                   <td className="px-6 py-4 text-sm text-slate-600">{o.startDate}</td>
                   <td className="px-6 py-4 text-sm font-medium text-slate-900">{o.customerName}</td>

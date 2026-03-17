@@ -226,7 +226,7 @@ const OrderManager = ({
 
         const today = new Date();
         const endDate = parseISO(order.endDate);
-        const daysOverdue = differenceInDays(today, endDate) + 1;
+        const daysOverdue = differenceInDays(today, endDate);
         setDaysLate(Math.max(0, daysOverdue));
 
         if (order.isLateFeeManual) {
@@ -658,7 +658,7 @@ const OrderManager = ({
                                         {(() => {
                                             const today = new Date();
                                             const endDateObj = parseISO(order.endDate);
-                                            const daysOverdue = differenceInDays(today, endDateObj) + 1;
+                                            const daysOverdue = differenceInDays(today, endDateObj);
                                             let currentLateFee = Number(order.lateFee) || 0;
                                             let showLateBadge = false;
 
@@ -908,13 +908,13 @@ const OrderManager = ({
                                                 <th className="px-4 py-3">Item</th>
                                                 <th className="px-4 py-3">Qty</th>
                                                 <th className="px-4 py-3">Price/Day</th>
-                                                <th className="px-4 py-3">Total ({Math.max(1, differenceInDays(parseISO(endDate), parseISO(startDate)))} Days)</th>
+                                                <th className="px-4 py-3">Total ({Math.max(1, differenceInDays(parseISO(endDate), parseISO(startDate)) + 1)} Days)</th>
                                                 <th className="px-4 py-3 text-right"></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {rentalItems.length > 0 ? rentalItems.map((item, idx) => {
-                                                const days = Math.max(1, differenceInDays(parseISO(endDate), parseISO(startDate)));
+                                                const days = Math.max(1, differenceInDays(parseISO(endDate), parseISO(startDate)) + 1);
                                                 return (
                                                     <tr key={idx}>
                                                         <td className="px-4 py-3 font-medium">{item.name}</td>
@@ -1233,7 +1233,7 @@ const OrderManager = ({
                                                     if (updatingOrder?.status === 'Active' && !updateFormData.isLateFeeManual) {
                                                         const today = new Date();
                                                         const endDateObj = parseISO(newEndDate);
-                                                        const daysOverdue = differenceInDays(today, endDateObj) + 1;
+                                                        const daysOverdue = differenceInDays(today, endDateObj);
                                                         if (daysOverdue > 0) {
                                                             const dailyRate = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0)), 0);
                                                             newLateFee = Math.ceil(dailyRate * daysOverdue);
