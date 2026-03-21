@@ -62,12 +62,11 @@ export function App() {
                 if (!currentUser && sqlMode) return; // Stop if no user is logged in
                 try {
                     const { api } = await import('./services/apiService');
-                    const [eq, cust, ord, exp, usrs, cats, sett] = await Promise.all([
+                    const [eq, cust, ord, exp, cats, sett] = await Promise.all([
                         api.getEquipment(),
                         api.getCustomers(),
                         api.getOrders(),
                         api.getExpenses(),
-                        api.getUsers(),
                         api.getCategories(),
                         api.getSettings()
                     ]);
@@ -75,9 +74,19 @@ export function App() {
                     setCustomers(cust);
                     setOrders(ord);
                     setExpenses(Array.isArray(exp) ? exp : []);
-                    setUsers(usrs);
                     setCategories(cats);
                     if (sett && sett.companyName) setSettings(sett);
+
+                    // Only fetch users if the current user is an admin
+                    if (currentUser && currentUser.role === 'admin') {
+                        try {
+                            const usrs = await api.getUsers();
+                            setUsers(usrs);
+                        } catch (err) {
+                            console.error("Failed to load users:", err);
+                        }
+                    }
+
                     setIsSqlOnline(true);
                 } catch (error) {
                     console.error("SQL Connection Failed, falling back to Local Storage:", error);
@@ -139,10 +148,10 @@ export function App() {
 
     useEffect(() => {
         localStorage.setItem('rental_settings', JSON.stringify(settings));
-        if (sqlMode && isSqlOnline) {
-            import('./services/apiService').then(({ api }) => api.saveSettings(settings));
+        if (sqlMode && isSqlOnline && currentUser?.role === 'admin') {
+            import('./services/apiService').then(({ api }) => api.saveSettings(settings).catch(err => console.error('Failed to auto-save settings:', err)));
         }
-    }, [settings, sqlMode, isSqlOnline]);
+    }, [settings, sqlMode, isSqlOnline, currentUser]);
 
     useEffect(() => {
         localStorage.setItem('rental_categories', JSON.stringify(categories));
@@ -219,6 +228,36 @@ export function App() {
                     customers={customers}
                     setCustomers={setCustomers}
                     settings={settings}
+                    currentUser={currentUser}
+                    onDeleteOrder={async (id, restoreStock = false, itemsToRestore = []) => {
+                        const sqlModeActive = localStorage.getItem('rental_sql_mode') !== 'false';
+                        if (sqlModeActive) {
+                            const { api } = await import('./services/apiService');
+                            await api.deleteOrder(id);
+                        }
+                        setOrders(prev => prev.filter(o => o.id !== id));
+
+                        if (restoreStock && itemsToRestore.length > 0) {
+                            setEquipment(prev => {
+                                const updatedEquipment = [...prev];
+                                itemsToRestore.forEach(item => {
+                                    const eqIdx = updatedEquipment.findIndex(eq => eq.id === item.equipmentId);
+                                    if (eqIdx !== -1) {
+                                        updatedEquipment[eqIdx] = {
+                                            ...updatedEquipment[eqIdx],
+                                            availableQuantity: (Number(updatedEquipment[eqIdx].availableQuantity) || 0) + (Number(item.quantity) || 0)
+                                        };
+                                        if (sqlModeActive) {
+                                            import('./services/apiService').then(({ api }) => {
+                                                api.updateEquipment(updatedEquipment[eqIdx]).catch(err => console.error("Stock restore failed:", err));
+                                            });
+                                        }
+                                    }
+                                });
+                                return updatedEquipment;
+                            });
+                        }
+                    }}
                 />;
             case 'expenses':
                 return <ExpenseManager
@@ -234,18 +273,18 @@ export function App() {
                         if (sqlMode) {
                             const { api } = await import('./services/apiService');
                             const savedUser = await api.saveUser(user);
-                            setUsers([...users, savedUser || user]);
+                            setUsers(prev => [...prev, savedUser || user]);
                         } else {
-                            setUsers([...users, user]);
+                            setUsers(prev => [...prev, user]);
                         }
                     }}
                     onUpdateUser={async (updatedUser) => {
                         if (sqlMode) {
                             const { api } = await import('./services/apiService');
                             const savedUser = await api.updateUser(updatedUser);
-                            setUsers(users.map(u => u.id === updatedUser.id ? (savedUser || updatedUser) : u));
+                            setUsers(prev => prev.map(u => u.id === updatedUser.id ? (savedUser || updatedUser) : u));
                         } else {
-                            setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+                            setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
                         }
                     }}
                     onDeleteUser={async (id) => {
@@ -253,7 +292,7 @@ export function App() {
                             const { api } = await import('./services/apiService');
                             await api.deleteUser(id);
                         }
-                        setUsers(users.filter(u => u.id !== id));
+                        setUsers(prev => prev.filter(u => u.id !== id));
                     }}
                 />;
             case 'reports':

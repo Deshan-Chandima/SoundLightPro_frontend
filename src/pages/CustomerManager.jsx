@@ -40,7 +40,7 @@ const CustomerManager = ({ customers, setCustomers }) => {
       }
       setShowForm(false);
       setEditingCustomer(null);
-      setFormData({ name: '', phone: '', email: '', address: '' });
+      setFormData({ name: '', phone: '', email: '', address: '', trn: '' });
     } catch (error) {
       console.error("Failed to save customer:", error);
     }
@@ -86,7 +86,7 @@ const CustomerManager = ({ customers, setCustomers }) => {
           onClick={() => {
             setShowForm(true);
             setEditingCustomer(null);
-            setFormData({ name: '', phone: '', email: '', address: '' });
+            setFormData({ name: '', phone: '', email: '', address: '', trn: '' });
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
         >

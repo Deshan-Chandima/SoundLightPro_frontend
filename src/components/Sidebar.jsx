@@ -28,11 +28,11 @@ const Sidebar = ({
         { id: 'customers', label: 'Customers', icon: Users },
         { id: 'orders', label: 'Orders & Rentals', icon: ShoppingCart },
         { id: 'expenses', label: 'Expenses', icon: Receipt },
-        { id: 'users', label: 'Users', icon: UserCog },
+        { id: 'users', label: 'Users', icon: UserCog, adminOnly: true },
         { id: 'reports', label: 'Reports', icon: BarChart3 },
         { id: 'settings', label: 'Settings', icon: SettingsIcon },
         { id: 'backup', label: 'Backup & Restore', icon: Database },
-    ];
+    ].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
     return (
         <aside className={cn(

@@ -275,6 +275,67 @@ const UserManager = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
                   />
                 </div>
 
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-3">Account Role</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div
+                      onClick={() => setFormData({ ...formData, role: 'staff' })}
+                      className={`relative cursor-pointer group p-4 rounded-2xl border-2 transition-all duration-200 ${formData.role === 'staff'
+                          ? 'border-indigo-600 bg-indigo-50/50'
+                          : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-xl transition-colors ${formData.role === 'staff' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 border border-slate-200'
+                          }`}>
+                          <UserCircle size={24} />
+                        </div>
+                        <div>
+                          <h4 className={`font-bold text-sm ${formData.role === 'staff' ? 'text-indigo-900' : 'text-slate-700'}`}>Staff Member</h4>
+                          <p className="text-xs text-slate-500 mt-0.5">Management, inventory & orders</p>
+                        </div>
+                      </div>
+                      {formData.role === 'staff' && (
+                        <div className="absolute top-3 right-3">
+                          <div className="w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg shadow-indigo-200">
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      onClick={() => setFormData({ ...formData, role: 'admin' })}
+                      className={`relative cursor-pointer group p-4 rounded-2xl border-2 transition-all duration-200 ${formData.role === 'admin'
+                          ? 'border-purple-600 bg-purple-50/50'
+                          : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-xl transition-colors ${formData.role === 'admin' ? 'bg-purple-600 text-white' : 'bg-white text-slate-400 border border-slate-200'
+                          }`}>
+                          <Shield size={24} />
+                        </div>
+                        <div>
+                          <h4 className={`font-bold text-sm ${formData.role === 'admin' ? 'text-purple-900' : 'text-slate-700'}`}>Administrator</h4>
+                          <p className="text-xs text-slate-500 mt-0.5">Full access, settings & users</p>
+                        </div>
+                      </div>
+                      {formData.role === 'admin' && (
+                        <div className="absolute top-3 right-3">
+                          <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-purple-200">
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
 
               </div>
 

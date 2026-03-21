@@ -54,7 +54,7 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
       }
     }
 
-    setCategories([...categories, newCat]);
+    setCategories(prev => [...prev, newCat]);
     setNewCategoryName('');
     toast.success('Category added successfully');
   };
@@ -87,7 +87,7 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
             return;
           }
         }
-        setCategories(categories.filter(c => c.id !== id));
+        setCategories(prev => prev.filter(c => c.id !== id));
         toast.success('Category deleted successfully');
       }
     });

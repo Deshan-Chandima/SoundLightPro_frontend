@@ -8,9 +8,10 @@ import {
 import { format, differenceInDays, isAfter, parseISO } from 'date-fns';
 import { cn } from '../utils/cn';
 import { useToast } from '../components/Toast';
+import SearchableSelect from '../components/SearchableSelect';
 
 const OrderManager = ({
-    orders, setOrders, equipment, setEquipment, customers, setCustomers, settings
+    orders, setOrders, equipment, setEquipment, customers, setCustomers, settings, currentUser, onDeleteOrder
 }) => {
     const { success, error, warning, info } = useToast();
     const [showForm, setShowForm] = useState(false);
@@ -446,6 +447,8 @@ const OrderManager = ({
             notes: order.notes || '',
             startDate: sDate,
             endDate: eDate,
+            discountType: order.discountType || 'percentage',
+            discountValue: Number(order.discountValue) || 0,
             items: order.items.map(item => ({ ...item }))
         });
     };
@@ -459,9 +462,9 @@ const OrderManager = ({
             const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)) + 1);
             const subtotalAmount = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0) * days), 0);
 
-            const discountValue = Number(updatingOrder.discountValue) || 0;
+            const discountValue = Number(updateFormData.discountValue) || 0;
             let totalAfterDiscount = subtotalAmount;
-            if (updatingOrder.discountType === 'percentage') {
+            if (updateFormData.discountType === 'percentage') {
                 totalAfterDiscount = subtotalAmount - (subtotalAmount * discountValue / 100);
             } else {
                 totalAfterDiscount = Math.max(0, subtotalAmount - discountValue);
@@ -486,6 +489,8 @@ const OrderManager = ({
                 taxAmount,
                 totalAmount,
                 paidAmount: newPaidAmount,
+                discountType: updateFormData.discountType,
+                discountValue: updateFormData.discountValue,
                 lateFee,
                 isLateFeeManual: updateFormData.isLateFeeManual !== undefined ? updateFormData.isLateFeeManual : updatingOrder.isLateFeeManual,
                 damageFee,
@@ -756,6 +761,21 @@ const OrderManager = ({
                                                 <CheckCircle className="w-5 h-5" />
                                             </button>
                                         )}
+                                        {currentUser?.role === 'admin' && (
+                                            <button
+                                                onClick={() => {
+                                                    if (window.confirm(`Are you sure you want to delete order ${order.id}?`)) {
+                                                        const shouldRestore = ['Active', 'Confirmed', 'Partially Returned'].includes(order.status);
+                                                        onDeleteOrder(order.id, shouldRestore, order.items);
+                                                        success("Order deleted successfully");
+                                                    }
+                                                }}
+                                                title="Delete Order"
+                                                className="p-2.5 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white rounded-[1.25rem] transition-all duration-300 active:scale-90 shadow-sm border border-red-100"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -786,14 +806,12 @@ const OrderManager = ({
                             <div className="lg:col-span-1 space-y-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Customer</label>
-                                    <select
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                    <SearchableSelect
+                                        options={customers.map(c => ({ value: c.id, label: c.name, searchLabel: `${c.name} ${c.trn || ''} ${c.phone || ''}` }))}
                                         value={selectedCustomerId}
-                                        onChange={(e) => setSelectedCustomerId(e.target.value)}
-                                    >
-                                        <option value="">Select Customer</option>
-                                        {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
+                                        onChange={setSelectedCustomerId}
+                                        placeholder="Select Customer..."
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -886,19 +904,21 @@ const OrderManager = ({
                             <div className="lg:col-span-2 space-y-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Add Items to Order</label>
-                                    <select
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                                        onChange={handleAddItem}
+                                    <SearchableSelect
+                                        options={equipment
+                                            .filter(e => Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0)) > 0)
+                                            .map(e => {
+                                                const rentable = Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0));
+                                                return {
+                                                    value: e.id,
+                                                    label: `${e.name} (${settings.currency}${e.pricePerDay}/day - ${rentable} left)`,
+                                                    searchLabel: e.name
+                                                };
+                                            })}
                                         value=""
-                                    >
-                                        <option value="">Choose equipment...</option>
-                                        {equipment.filter(e => Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0)) > 0).map(e => {
-                                            const rentable = Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0));
-                                            return (
-                                                <option key={e.id} value={e.id}>{e.name} ({settings.currency}{e.pricePerDay}/day - {rentable} left)</option>
-                                            );
-                                        })}
-                                    </select>
+                                        onChange={(val) => handleAddItem({ target: { value: val } })}
+                                        placeholder="Choose equipment..."
+                                    />
                                 </div>
 
                                 <div className="border border-slate-100 rounded-xl overflow-hidden overflow-x-auto">
@@ -1249,10 +1269,23 @@ const OrderManager = ({
 
                                     <div className="space-y-2">
                                         <label className="block text-xs font-bold text-slate-500 uppercase">Add Equipment</label>
-                                        <select
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
-                                            onChange={(e) => {
-                                                const equipId = e.target.value;
+                                        <SearchableSelect
+                                            options={equipment.reduce((acc, e) => {
+                                                const inCurrentOrder = updatingOrder.status === 'Active' ? (updatingOrder.items.find(oi => oi.equipmentId === e.id)?.quantity || 0) : 0;
+                                                const baseRentable = Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0));
+                                                const totalAvail = baseRentable + inCurrentOrder;
+                                                if (totalAvail > 0) {
+                                                    acc.push({
+                                                        value: e.id,
+                                                        label: `${e.name} (${settings.currency}${e.pricePerDay}/day - ${totalAvail} available)`,
+                                                        searchLabel: e.name
+                                                    });
+                                                }
+                                                return acc;
+                                            }, [])}
+                                            value=""
+                                            onChange={(val) => {
+                                                const equipId = val;
                                                 if (!equipId) return;
                                                 const item = equipment.find(eq => eq.id === equipId);
                                                 const rentable = item ? Math.min(item.availableQuantity, item.totalQuantity - (item.damagedQuantity || 0)) : 0;
@@ -1286,20 +1319,8 @@ const OrderManager = ({
                                                     }
                                                 }
                                             }}
-                                            value=""
-                                        >
-                                            <option value="">Choose equipment...</option>
-                                            {equipment.map(e => {
-
-                                                const inCurrentOrder = updatingOrder.status === 'Active' ? (updatingOrder.items.find(oi => oi.equipmentId === e.id)?.quantity || 0) : 0;
-                                                const baseRentable = Math.min(e.availableQuantity, e.totalQuantity - (e.damagedQuantity || 0));
-                                                const totalAvail = baseRentable + inCurrentOrder;
-                                                if (totalAvail <= 0) return null;
-                                                return (
-                                                    <option key={e.id} value={e.id}>{e.name} ({settings.currency}{e.pricePerDay}/day - {totalAvail} available)</option>
-                                                );
-                                            })}
-                                        </select>
+                                            placeholder="Choose equipment..."
+                                        />
                                     </div>
 
                                     <div className="border border-slate-200 rounded-xl overflow-hidden max-h-40 overflow-y-auto bg-white">
@@ -1408,6 +1429,44 @@ const OrderManager = ({
                                 </div>
 
                                 <div className="col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Discount</label>
+                                    <div className="flex gap-2 mb-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setUpdateFormData({ ...updateFormData, discountType: 'percentage' })}
+                                            className={cn(
+                                                "flex-1 py-1 px-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                                                updateFormData.discountType === 'percentage' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white text-slate-400 border border-slate-200"
+                                            )}
+                                        >
+                                            % Percentage
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setUpdateFormData({ ...updateFormData, discountType: 'fixed' })}
+                                            className={cn(
+                                                "flex-1 py-1 px-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                                                updateFormData.discountType === 'fixed' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white text-slate-400 border border-slate-200"
+                                            )}
+                                        >
+                                            {settings.currency} Fixed
+                                        </button>
+                                    </div>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span className="text-slate-400 font-bold">{updateFormData.discountType === 'percentage' ? '%' : settings.currency}</span>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                            placeholder="Discount value..."
+                                            value={updateFormData.discountValue || ''}
+                                            onChange={e => setUpdateFormData({ ...updateFormData, discountValue: Number(e.target.value) })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="col-span-2">
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Order Notes</label>
                                     <textarea
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 h-20 resize-none text-sm"
@@ -1425,8 +1484,8 @@ const OrderManager = ({
                                     const days = Math.max(1, differenceInDays(parseISO(updateFormData.endDate), parseISO(updateFormData.startDate)) + 1);
                                     const subtotal = updateFormData.items.reduce((sum, item) => sum + ((Number(item.pricePerUnit) || 0) * (Number(item.quantity) || 0) * days), 0);
                                     let totalAfterDiscount = subtotal;
-                                    const discountVal = Number(updatingOrder.discountValue) || 0;
-                                    if (updatingOrder.discountType === 'percentage') {
+                                    const discountVal = Number(updateFormData.discountValue) || 0;
+                                    if (updateFormData.discountType === 'percentage') {
                                         totalAfterDiscount = subtotal - (subtotal * discountVal / 100);
                                     } else {
                                         totalAfterDiscount = Math.max(0, subtotal - discountVal);
@@ -1447,7 +1506,7 @@ const OrderManager = ({
                                                 <span className="opacity-70 italic">Rental Subtotal:</span>
                                                 <span className="font-bold">{settings.currency}{subtotal.toFixed(2)}</span>
                                             </div>
-                                            {updatingOrder.discountValue > 0 && (
+                                            {updateFormData.discountValue > 0 && (
                                                 <div className="flex justify-between text-sm text-emerald-400">
                                                     <span className="opacity-70 italic">Discount Applied:</span>
                                                     <span className="font-bold">-{settings.currency}{(subtotal - totalAfterDiscount).toFixed(2)}</span>
