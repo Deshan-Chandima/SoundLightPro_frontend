@@ -9,6 +9,10 @@ const SQL_MODE = localStorage.getItem('rental_sql_mode') !== 'false';
 
 export const isSqlMode = () => SQL_MODE;
 
+export const getProxyImageUrl = (url) => {
+    return `${API_URL}/api/proxy-image?url=${encodeURIComponent(url)}`;
+};
+
 async function request(endpoint, options = {}) {
     const token = localStorage.getItem('rental_auth_token');
     const headers = {

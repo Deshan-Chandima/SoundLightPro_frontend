@@ -1,7 +1,7 @@
 import React from 'react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { Printer, FileDown, X, Box, ClipboardList, Send } from 'lucide-react';
-import { generateInvoicePDF, generateTicketPDF, formatTerms } from '../utils/pdfGenerator';
+import { generateInvoicePDF, generateTicketPDF, formatTerms, generatePDFFromHTML } from '../utils/pdfGenerator';
 import { api } from '../services/apiService';
 
 const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUser }) => {
@@ -9,9 +9,9 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
         window.print();
     };
 
-    const handleDownloadPDF = (docType) => {
+    const handleDownloadPDF = async (docType) => {
         try {
-            const doc = generateInvoicePDF(order, settings, docType, currentUser, equipment);
+            const doc = await generatePDFFromHTML('invoice-capture-area');
             doc.save(`${docType}_${order.id || 'draft'}.pdf`);
         } catch (error) {
             console.error(`Error downloading ${docType}:`, error);
@@ -50,7 +50,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
         }
 
         try {
-            const doc = generateInvoicePDF(order, settings, isQuotation ? 'Quotation' : 'Invoice', currentUser, equipment);
+            const doc = await generatePDFFromHTML('invoice-capture-area');
             const blob = doc.output('blob');
 
             const formData = new FormData();
@@ -164,7 +164,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
             </div>
 
 
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[850px] min-h-[1000px] mt-20 mb-10 print:mt-0 print:mb-0 print:shadow-none print:rounded-none overflow-hidden flex flex-col">
+            <div id="invoice-capture-area" className="bg-white rounded-2xl shadow-2xl w-full max-w-[850px] min-h-[1000px] mt-20 mb-10 print:mt-0 print:mb-0 print:shadow-none print:rounded-none overflow-hidden flex flex-col">
 
 
                 <div className="p-12 pb-4">
@@ -368,7 +368,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                 <div className="mt-auto">
                     {/* Bank Details (Invoice Only) */}
                     {order.status !== 'Quotation' && settings.bankDetails && (
-                        <div className="mt-12 text-left px-12 print:break-inside-avoid">
+                        <div className="bank-details-section mt-12 text-left px-12 print:break-inside-avoid">
                             <div className="text-sm text-slate-900 whitespace-pre-line font-bold leading-relaxed">
                                 {settings.bankDetails}
                             </div>
@@ -377,7 +377,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
 
                     {/* Terms and Conditions (Quotation Only) */}
                     {order.status === 'Quotation' && settings.termsAndConditions && (
-                        <div className="mt-16 text-left border-t border-slate-100 pt-8 px-12 print:break-inside-avoid">
+                        <div className="terms-section mt-16 text-left border-t border-slate-100 pt-8 px-12 print:break-inside-avoid">
                             <h4 className="text-sm font-bold text-slate-900 mb-4">Terms and Conditions:</h4>
                             <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed text-justify">
                                 {formatTerms(settings.termsAndConditions)}

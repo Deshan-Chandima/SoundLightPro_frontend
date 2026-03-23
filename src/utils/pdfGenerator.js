@@ -1,6 +1,159 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO, differenceInDays } from 'date-fns';
+import { toPng } from 'html-to-image';
+import { getProxyImageUrl } from '../services/apiService';
+
+export const generatePDFFromHTML = async (elementId) => {
+    const element = document.getElementById(elementId);
+    if (!element) throw new Error("Element not found");
+
+    // Create a dummy PDF to get exact A4 dimensions for calculation
+    const dummyPdf = new jsPDF({ orientation: 'p', unit: 'px', format: 'a4' });
+    const pdfWidth = dummyPdf.internal.pageSize.getWidth();
+    const pdfHeight = dummyPdf.internal.pageSize.getHeight();
+    
+    // Swap the logo image to use the backend proxy if it's external, bypassing strict CSPs
+    const logoImg = element.querySelector('img[alt="Logo"]');
+    let originalLogoSrc = null;
+    if (logoImg && logoImg.src.startsWith('http') && !logoImg.src.includes('/api/settings/proxy-image')) {
+        originalLogoSrc = logoImg.src;
+        // Create a promise that resolves when the proxied image finishes loading
+        const loadPromise = new Promise(resolve => {
+            logoImg.onload = resolve;
+            logoImg.onerror = resolve; // Continue even if it fails
+        });
+        logoImg.src = getProxyImageUrl(logoImg.src);
+        await loadPromise;
+    }
+    
+    // Temporarily neuter tricky flexbox properties that cause html-to-image rendering glitches
+    // Forcefully remove the tailwind classes that cause artificial blank space
+    const originalMinHeight = element.style.minHeight;
+    const hadMinHeight = element.classList.contains('min-h-[1000px]');
+    if (hadMinHeight) element.classList.remove('min-h-[1000px]');
+    element.style.setProperty('min-height', 'auto', 'important');
+    
+    // Fix mt-auto tearing by switching it off so the layout tightens up naturally
+    const mtAutoDivs = element.querySelectorAll('.mt-auto');
+    const originalMtStyles = new Map();
+    mtAutoDivs.forEach(div => {
+        div.classList.remove('mt-auto');
+        originalMtStyles.set(div, div.style.marginTop);
+        div.style.setProperty('margin-top', '60px', 'important');
+    });
+
+    // Ratio of PDF width to actual element width on screen
+    // We force a reflow by reading scrollWidth to ensure the new tightened heights apply
+    const elementWidth = element.scrollWidth || 800;
+    const contentHeight = element.scrollHeight; // Read newly tightened physical height
+    const ratio = pdfWidth / elementWidth;
+    
+    // Dynamic height of one page in screen pixels, subtract a safety margin
+    const imgPageHeight = (pdfHeight / ratio) - 10; 
+    
+    const sectionsToKeepTogether = element.querySelectorAll('.terms-section, .bank-details-section');
+    let originalStyles = new Map();
+    
+    sectionsToKeepTogether.forEach(section => {
+        const rect = section.getBoundingClientRect();
+        const containerRect = element.getBoundingClientRect();
+        const topOffset = rect.top - containerRect.top;
+        const bottomOffset = rect.bottom - containerRect.top;
+        
+        const startsOnPage = Math.floor(topOffset / imgPageHeight);
+        const endsOnPage = Math.floor(bottomOffset / imgPageHeight);
+        
+        // Strict boundary: Only push if the section mathematically crosses the splitting line
+        if (startsOnPage !== endsOnPage && rect.height < (imgPageHeight * 0.9)) {
+            originalStyles.set(section, section.style.marginTop);
+            const nextPageStart = (endsOnPage) * imgPageHeight;
+            const pushAmount = nextPageStart - topOffset + 20;
+            const currentMargin = parseFloat(window.getComputedStyle(section).marginTop) || 0;
+            section.style.marginTop = `${currentMargin + pushAmount}px`;
+        }
+    });
+
+    try {
+        const imgData = await toPng(element, { 
+            pixelRatio: 2, 
+            backgroundColor: '#ffffff',
+            cacheBust: true,
+            height: element.scrollHeight,
+            width: element.scrollWidth
+        });
+
+        // Restore styles
+        originalStyles.forEach((style, section) => {
+            section.style.marginTop = style;
+        });
+
+        const pdf = new jsPDF({
+            orientation: 'p',
+            unit: 'px',
+            format: 'a4'
+        });
+
+        const img = new Image();
+        img.src = imgData;
+        await new Promise(resolve => img.onload = resolve);
+
+        const canvasWidth = img.width;
+        const canvasHeight = img.height;
+
+        let drawingRatio = pdfWidth / canvasWidth;
+        let scaledHeight = canvasHeight * drawingRatio;
+        let renderWidth = pdfWidth;
+        let marginX = 0;
+
+        // Auto-fit to 1 page if it's just lightly spilling over (up to 35% of a second page)
+        // This stops it from generating a mostly blank 2nd page just for the footer!
+        if (scaledHeight > pdfHeight && scaledHeight <= pdfHeight * 1.35) {
+            drawingRatio = pdfHeight / canvasHeight; 
+            scaledHeight = pdfHeight;
+            renderWidth = canvasWidth * drawingRatio;
+            marginX = (pdfWidth - renderWidth) / 2; // Center horizontally
+        }
+
+        let heightLeft = scaledHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', marginX, position, renderWidth, scaledHeight);
+        heightLeft -= pdfHeight;
+
+        // Tolerance of 30px to prevent rendering a completely blank page just for a sliver of padding
+        while (heightLeft > 30) {
+            position -= pdfHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', marginX, position, renderWidth, scaledHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        return pdf;
+    } catch (error) {
+        // Cleanup on error
+        originalStyles.forEach((style, section) => {
+            section.style.marginTop = style;
+        });
+        
+        if (hadMinHeight) element.classList.add('min-h-[1000px]');
+        element.style.minHeight = originalMinHeight;
+        mtAutoDivs.forEach(div => {
+            div.classList.add('mt-auto');
+            div.style.marginTop = originalMtStyles.get(div);
+        });
+        if (originalLogoSrc && logoImg) logoImg.src = originalLogoSrc;
+        throw error;
+    } finally {
+        if (hadMinHeight) element.classList.add('min-h-[1000px]');
+        element.style.minHeight = originalMinHeight;
+        mtAutoDivs.forEach(div => {
+            div.classList.add('mt-auto');
+            div.style.marginTop = originalMtStyles.get(div);
+        });
+        if (originalLogoSrc && logoImg) logoImg.src = originalLogoSrc;
+    }
+};
 
 export const formatTerms = (text) => {
     if (!text) return '';
@@ -32,67 +185,59 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
         const companyName = safeSettings.companyName || 'Company Name';
         const isQuotation = docType ? docType === 'Quotation' : order.status === 'Quotation';
 
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(22);
+        const splitCompanyName = doc.splitTextToSize(companyName.toUpperCase(), 180);
+        const companyTextHeight = splitCompanyName.length * 8;
+        const headerBottomY = 18 + companyTextHeight + 15;
+
         doc.setFillColor(255, 255, 255);
-        doc.rect(0, 0, 210, 40, 'F');
+        doc.rect(0, 0, 210, headerBottomY, 'F');
         doc.setDrawColor(241, 245, 249);
-        doc.line(0, 40, 210, 40);
+        doc.line(0, headerBottomY, 210, headerBottomY);
 
         doc.setTextColor(15, 23, 42);
-        doc.setFontSize(24);
-        doc.setFont('helvetica', 'bold');
+        doc.text(splitCompanyName, 105, 18, { align: 'center' });
+        
+        let headerNextY = 18 + companyTextHeight + 2;
+
         const title = isQuotation ? 'QUOTATION' : 'TAX INVOICE';
-        doc.text(title, 14, 25);
+        doc.setFontSize(16);
+        doc.text(title, 105, headerNextY, { align: 'center' });
 
+        headerNextY += 6;
         doc.setTextColor(100, 116, 139);
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(`${isQuotation ? 'Quote' : 'Invoice'} ID: #${order.id}`, 14, 32);
+        doc.text(`${isQuotation ? 'Quote' : 'Invoice'} ID: #${order.id}`, 105, headerNextY, { align: 'center' });
 
-        // In the PDF, since we want a very large layout like the picture:
         if (safeSettings.logo) {
             try {
-                // If the user uploads a JPEG, passing 'PNG' might sometimes still work in jsPDF, or it might infer it.
-                // It's safer to just provide the image data, the type, the X, the Y, and the Width, and let jsPDF figure out the Height.
-                // We'll extract the type from the data URL if possible, or default to 'PNG'.
                 let imgType = 'PNG';
                 if (typeof safeSettings.logo === 'string' && safeSettings.logo.startsWith('data:image/')) {
                     const match = safeSettings.logo.match(/^data:image\/([a-zA-Z0-9]+);/);
                     if (match && match[1]) {
                         imgType = match[1].toUpperCase();
-                        if (imgType === 'JPEG') imgType = 'JPEG'; // jsPDF expects JPEG or format name
+                        if (imgType === 'JPEG') imgType = 'JPEG';
                     }
                 }
-
-                // Draw image with fixed width of 65, and auto-scaled height (by omitting height argument or passing 0/undefined appropriately).
-                // jsPDF sig is `addImage(imageData, format, x, y, w, h)`. If `h` is omitted or 0, it scales automatically.
-                // Let's pass 0 for height just to be safe, or just omit it.
-                // align right: x = 135 (since width is 65, and side margin is ~10, 210-75)
                 doc.addImage(safeSettings.logo, imgType, 135, 5, 65, 0);
             } catch (e) {
                 console.error("Error drawing logo:", e);
-                // Fallback drawing company name instead if it completely fails to avoid breaking the whole PDF
-                doc.setTextColor(15, 23, 42);
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.text(companyName.toUpperCase(), 140, 15);
             }
-        } else {
-            // No logo, but we will print company details on the left anyway, so we don't need to put the name on the right side.
         }
-
-        // Adjusted Y position for the rest of the document.
-        // Tax Invoice is at 25, Invoice ID at 32. 
-        // Company details will start at 45 on the left.
 
         doc.setTextColor(0, 0, 0);
 
-        // Add company details on the left side under the title
+        // Add company details on the left side under the header
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text(companyName.toUpperCase(), 14, 45);
-        doc.setFont('helvetica', 'normal');
+        const compNameY = headerBottomY + 5;
+        doc.text(companyName.toUpperCase(), 14, compNameY);
+
         doc.setFontSize(8);
-        const compY = 50;
+        doc.setFont('helvetica', 'normal');
+        const compY = compNameY + 5;
         const splitAddressComp = doc.splitTextToSize(safeSettings.address || '', 60);
         doc.text(splitAddressComp, 14, compY);
         const addressHeightComp = splitAddressComp.length * 4;
@@ -100,7 +245,7 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
         doc.text(`Email: ${safeSettings.email || ''}`, 14, compY + addressHeightComp + 4);
 
         // Billed To section starts lower to clear company details and logo
-        let currentY = 65;
+        let currentY = Math.max(headerBottomY + 30, compY + addressHeightComp + 15);
 
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
@@ -124,13 +269,13 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
         }
         doc.setFontSize(10);
 
-        const tableStartY = Math.max(currentY + 5, 95);
+        const tableStartY = Math.max(currentY + 5, headerBottomY + 60);
 
         doc.setFont('helvetica', 'bold');
-        doc.text('RENTAL PERIOD:', 140, 65);
+        doc.text('RENTAL PERIOD:', 140, compNameY);
         doc.setFont('helvetica', 'normal');
-        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 70);
-        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 75);
+        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, compNameY + 5);
+        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, compNameY + 10);
 
         const isReturned = order.status === 'Returned' && order.returnDate;
         const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)) + 1);
@@ -440,33 +585,41 @@ export const generateTicketPDF = (order, settings, equipment = []) => {
         const safeSettings = settings || {};
         const companyName = safeSettings.companyName || 'Company Name';
 
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(22);
+        const splitCompanyName = doc.splitTextToSize(companyName.toUpperCase(), 180);
+        const companyTextHeight = splitCompanyName.length * 8;
+        const headerBottomY = 18 + companyTextHeight + 15;
+
         doc.setFillColor(255, 255, 255);
-        doc.rect(0, 0, 210, 40, 'F');
+        doc.rect(0, 0, 210, headerBottomY, 'F');
         doc.setDrawColor(241, 245, 249);
-        doc.line(0, 40, 210, 40);
+        doc.line(0, headerBottomY, 210, headerBottomY);
 
         doc.setTextColor(15, 23, 42);
-        doc.setFontSize(24);
-        doc.setFont('helvetica', 'bold');
-        doc.text("DISPATCH TICKET", 14, 25);
+        doc.text(splitCompanyName, 105, 18, { align: 'center' });
+        
+        let headerNextY = 18 + companyTextHeight + 2;
 
+        doc.setFontSize(16);
+        doc.text("DISPATCH TICKET", 105, headerNextY, { align: 'center' });
+
+        headerNextY += 6;
         doc.setTextColor(100, 116, 139);
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Order ID: #${order.id}`, 14, 32);
+        doc.text(`Order ID: #${order.id}`, 105, headerNextY, { align: 'center' });
 
-        doc.setTextColor(15, 23, 42);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(companyName.toUpperCase(), 140, 15);
+        let contentStartY = headerBottomY + 5;
 
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('DELIVER TO:', 14, 45);
+        doc.text('DELIVER TO:', 14, contentStartY);
         doc.setFont('helvetica', 'normal');
-        doc.text(order.customerName, 14, 50);
-        let currentY = 55;
+        doc.text(order.customerName, 14, contentStartY + 5);
+        let currentY = contentStartY + 10;
+        
         if (order.customerAddress) {
             const splitAddress = doc.splitTextToSize(order.customerAddress, 80);
             doc.text(splitAddress, 14, currentY);
@@ -477,13 +630,12 @@ export const generateTicketPDF = (order, settings, equipment = []) => {
         doc.text(`Customer Contact: ${order.customerPhone || 'N/A'}`, 14, currentY);
         currentY += 5;
 
-        const tableStartY = Math.max(currentY + 5, 75);
-
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('RENTAL PERIOD:', 140, 45);
+        doc.text('RENTAL PERIOD:', 140, contentStartY);
         doc.setFont('helvetica', 'normal');
-        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, 50);
-        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, 55);
+        doc.text(`${format(parseISO(order.startDate), 'MMM dd, yyyy')} to`, 140, contentStartY + 5);
+        doc.text(`${format(parseISO(order.endDate), 'MMM dd, yyyy')}`, 140, contentStartY + 10);
 
         const isReturned = order.status === 'Returned' && order.returnDate;
         const originalDuration = Math.max(1, differenceInDays(parseISO(order.endDate), parseISO(order.startDate)) + 1);
@@ -492,7 +644,9 @@ export const generateTicketPDF = (order, settings, equipment = []) => {
             : originalDuration;
         const durationDays = (isReturned && actualDuration > originalDuration) ? originalDuration : actualDuration;
 
-        doc.text(`Duration: ${durationDays} Days`, 140, 60);
+        doc.text(`Duration: ${durationDays} Days`, 140, contentStartY + 15);
+
+        const tableStartY = Math.max(currentY + 5, contentStartY + 25);
 
         const groupedItems = {};
         order.items.forEach(item => {
