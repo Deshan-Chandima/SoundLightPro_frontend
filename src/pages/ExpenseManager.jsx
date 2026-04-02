@@ -144,7 +144,7 @@ const ExpenseManager = ({ expenses = [], setExpenses, orders, settings }) => {
                     onChange={e => setFormData({ ...formData, orderId: e.target.value })}
                   >
                     <option value="">None / Not linked to order</option>
-                    {orders.map(order => (
+                    {[...orders].sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0)).map(order => (
                       <option key={order.id} value={order.id}>{order.id} - {order.customerName}</option>
                     ))}
                   </select>

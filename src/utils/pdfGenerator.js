@@ -16,12 +16,18 @@ export const generatePDFFromHTML = async (elementId) => {
     // Swap the logo image to use the backend proxy if it's external, bypassing strict CSPs
     const logoImg = element.querySelector('img[alt="Logo"]');
     let originalLogoSrc = null;
-    if (logoImg && logoImg.src.startsWith('http') && !logoImg.src.includes('/api/settings/proxy-image')) {
+    if (logoImg && logoImg.src.startsWith('http') && 
+        !logoImg.src.includes('/api/proxy-image') && 
+        !logoImg.src.startsWith(window.location.origin)) {
+        
         originalLogoSrc = logoImg.src;
         // Create a promise that resolves when the proxied image finishes loading
         const loadPromise = new Promise(resolve => {
             logoImg.onload = resolve;
-            logoImg.onerror = resolve; // Continue even if it fails
+            logoImg.onerror = (e) => {
+                console.warn("Logo proxy load failed, continuing with original or broken image", e);
+                resolve();
+            };
         });
         logoImg.src = getProxyImageUrl(logoImg.src);
         await loadPromise;

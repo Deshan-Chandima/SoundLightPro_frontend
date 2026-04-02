@@ -13,9 +13,10 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
         try {
             const doc = await generatePDFFromHTML('invoice-capture-area');
             doc.save(`${docType}_${order.id || 'draft'}.pdf`);
-        } catch (error) {
-            console.error(`Error downloading ${docType}:`, error);
-            alert(`Failed to download ${docType}. See console for details.`);
+        } catch (err) {
+            console.error(`Error downloading ${docType}:`, err);
+            const msg = err instanceof Error ? err.message : (err && err.type === 'error' ? 'Image load failure' : 'Unknown error');
+            alert(`Failed to download ${docType}. Error: ${msg}. If this persists, try printing the page to PDF instead.`);
         }
     };
 
@@ -220,6 +221,12 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                             <div className="text-sm font-medium text-slate-600">
                                 <span className="text-slate-400 mr-2">TRN:</span>
                                 {order.customerTrn}
+                            </div>
+                        )}
+                        {order.eventName && (
+                            <div className="mt-4 p-3 bg-slate-50 rounded-lg border-l-4 border-blue-600">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Event Name</span>
+                                <div className="text-slate-900 font-bold text-base uppercase tracking-tight">{order.eventName}</div>
                             </div>
                         )}
                     </div>
