@@ -271,7 +271,6 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
-                      required
                       type="number"
                       className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                       value={formData.pricePerDay || ''}
@@ -284,7 +283,6 @@ const InventoryManager = ({ equipment, setEquipment, categories, setCategories, 
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
-                      required
                       type="number"
                       placeholder="Replacement cost"
                       className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
