@@ -11,12 +11,15 @@ import { useToast } from '../components/Toast';
 import SearchableSelect from '../components/SearchableSelect';
 
 const OrderManager = ({
-    orders, setOrders, equipment, setEquipment, customers, setCustomers, settings, currentUser, onDeleteOrder
+    orders, setOrders, equipment, setEquipment, customers, setCustomers,
+    expenses = [], setExpenses, settings, currentUser, onDeleteOrder
 }) => {
     const { success, error, warning, info } = useToast();
     const [showForm, setShowForm] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('active');
+    const [editingOrderId, setEditingOrderId] = useState(null);  // which order.id is being renamed
+    const [editingValue, setEditingValue] = useState('');         // current input value
 
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -557,6 +560,41 @@ const OrderManager = ({
         window.open(`/?view=invoice&id=${orderId}`, '_blank', 'width=1000,height=800');
     };
 
+    const handleRenameOrder = async (oldId) => {
+        const newId = editingValue.trim();
+        setEditingOrderId(null);
+        setEditingValue('');
+
+        if (!newId || newId === oldId) return; // nothing changed
+
+        const sqlMode = localStorage.getItem('rental_sql_mode') !== 'false';
+        if (sqlMode) {
+            try {
+                const { api } = await import('../services/apiService');
+                await api.renameOrder(oldId, newId);
+                // Update local state — replace the id on the matching order
+                setOrders(prev => prev.map(o => o.id === oldId ? { ...o, id: newId } : o));
+                // Update local state - update linked expenses to the new ID
+                if (setExpenses) {
+                    setExpenses(prev => prev.map(ex => ex.orderId === oldId ? { ...ex, orderId: newId } : ex));
+                }
+                success(`Invoice number changed to ${newId}`);
+            } catch (err) {
+                // 409 conflict or other errors
+                error(err.message || 'Failed to rename invoice. Please try again.');
+            }
+        } else {
+            // Local/non-SQL mode: just check for conflicts in state
+            const duplicate = orders.some(o => o.id === newId);
+            if (duplicate) {
+                error(`Invoice number "${newId}" is already in use. Please choose a different number.`);
+                return;
+            }
+            setOrders(prev => prev.map(o => o.id === oldId ? { ...o, id: newId } : o));
+            success(`Invoice number changed to ${newId}`);
+        }
+    };
+
     const resetForm = () => {
         setShowForm(false);
         setSelectedCustomerId('');
@@ -652,7 +690,38 @@ const OrderManager = ({
                         {filteredOrders.length > 0 ? filteredOrders.map((order) => (
                             <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-6 py-4">
-                                    <span className="font-mono text-xs font-bold text-blue-600">{order.id}</span>
+                                    {currentUser?.role === 'admin' ? (
+                                        editingOrderId === order.id ? (
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                value={editingValue}
+                                                onChange={e => setEditingValue(e.target.value)}
+                                                onBlur={() => handleRenameOrder(order.id)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') { e.target.blur(); }
+                                                    if (e.key === 'Escape') {
+                                                        setEditingOrderId(null);
+                                                        setEditingValue('');
+                                                    }
+                                                }}
+                                                className="font-mono text-xs font-bold text-blue-600 border border-blue-300 rounded px-2 py-1 w-32 outline-none ring-2 ring-blue-200 bg-blue-50"
+                                            />
+                                        ) : (
+                                            <span
+                                                className="font-mono text-xs font-bold text-blue-600 cursor-pointer hover:underline hover:text-blue-800 transition-colors"
+                                                title="Click to edit invoice number"
+                                                onClick={() => {
+                                                    setEditingOrderId(order.id);
+                                                    setEditingValue(order.id);
+                                                }}
+                                            >
+                                                {order.id}
+                                            </span>
+                                        )
+                                    ) : (
+                                        <span className="font-mono text-xs font-bold text-blue-600">{order.id}</span>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4">
                                     <p className="font-medium text-slate-900">{order.customerName}</p>

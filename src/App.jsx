@@ -227,6 +227,8 @@ export function App() {
                     setEquipment={setEquipment}
                     customers={customers}
                     setCustomers={setCustomers}
+                    expenses={expenses}
+                    setExpenses={setExpenses}
                     settings={settings}
                     currentUser={currentUser}
                     onDeleteOrder={async (id, restoreStock = false, itemsToRestore = []) => {

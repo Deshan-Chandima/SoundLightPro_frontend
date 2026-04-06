@@ -74,6 +74,7 @@ export const api = {
     saveOrder: (order) => request('/api/orders', { method: 'POST', body: JSON.stringify(order) }),
     updateOrder: (order) => request(`/api/orders/${order.id}`, { method: 'PUT', body: JSON.stringify(order) }),
     deleteOrder: (id) => request(`/api/orders/${id}`, { method: 'DELETE' }),
+    renameOrder: (oldId, newId) => request(`/api/orders/${encodeURIComponent(oldId)}/rename`, { method: 'PATCH', body: JSON.stringify({ newId }) }),
 
     getExpenses: () => request('/api/expenses'),
     saveExpense: (expense) => request('/api/expenses', { method: 'POST', body: JSON.stringify(expense) }),
