@@ -71,7 +71,7 @@ const OrderManager = ({
     };
 
     const calculateVAT = () => {
-        return calculateTotalAfterDiscount() * ((settings.taxPercentage || 5) / 100);
+        return calculateTotalAfterDiscount() * ((settings.taxPercentage ?? 5) / 100);
     };
 
     const calculateGrandTotal = () => {
@@ -136,6 +136,7 @@ const OrderManager = ({
             status: status,
             subtotalAmount: subtotal,
             taxAmount: vat,
+            taxPercentage: settings.taxPercentage ?? 5,
             totalAmount: grandTotal,
             discountType,
             discountValue,
@@ -279,7 +280,7 @@ const OrderManager = ({
             }
 
 
-            taxAmount = totalAfterDiscount * ((settings.taxPercentage || 5) / 100);
+            taxAmount = totalAfterDiscount * ((processingReturn.taxPercentage ?? settings.taxPercentage ?? 5) / 100);
             totalAmount = totalAfterDiscount + taxAmount;
         }
 
@@ -477,7 +478,7 @@ const OrderManager = ({
                 totalAfterDiscount = Math.max(0, subtotalAmount - discountValue);
             }
 
-            const taxRate = (Number(settings.taxPercentage) || 5) / 100;
+            const taxRate = (Number(updatingOrder.taxPercentage ?? settings.taxPercentage ?? 5)) / 100;
             const taxAmount = totalAfterDiscount * taxRate;
             const totalAmount = totalAfterDiscount + taxAmount;
 
@@ -1075,7 +1076,7 @@ const OrderManager = ({
                                         <span className="text-emerald-600 font-bold">-{settings.currency}{(discountType === 'percentage' ? (calculateSubtotal() * discountValue / 100) : discountValue).toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600">
-                                        <span>VAT ({settings.taxPercentage || 5}%)</span>
+                                        <span>VAT ({settings.taxPercentage ?? 5}%)</span>
                                         <span className="font-bold text-slate-900">{settings.currency}{calculateVAT().toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600 border-t border-slate-100 pt-1">
@@ -1586,7 +1587,7 @@ const OrderManager = ({
                                     } else {
                                         totalAfterDiscount = Math.max(0, subtotal - discountVal);
                                     }
-                                    const vat = totalAfterDiscount * ((Number(settings.taxPercentage) || 5) / 100);
+                                    const vat = totalAfterDiscount * ((Number(updatingOrder.taxPercentage ?? settings.taxPercentage ?? 5)) / 100);
                                     const totalWithTax = totalAfterDiscount + vat;
                                     const fees = (Number(updateFormData.lateFee) || 0) + (Number(updateFormData.damageFee) || 0);
                                     const paid = (Number(updatingOrder.paidAmount) || 0) + (Number(updateFormData.additionalPayment) || 0);
@@ -1609,7 +1610,7 @@ const OrderManager = ({
                                                 </div>
                                             )}
                                             <div className="flex justify-between text-sm">
-                                                <span className="opacity-70 italic">VAT ({settings.taxPercentage || 5}%):</span>
+                                                <span className="opacity-70 italic">VAT ({updatingOrder.taxPercentage ?? settings.taxPercentage ?? 5}%):</span>
                                                 <span className="font-bold">+{settings.currency}{vat.toFixed(2)}</span>
                                             </div>
                                             <div className="flex justify-between text-sm text-rose-400">

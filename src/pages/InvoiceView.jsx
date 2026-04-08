@@ -325,7 +325,7 @@ const InvoiceView = ({ equipment, order, customer, settings, onClose, currentUse
                             )}
 
                             <div className="flex justify-between items-center text-slate-500 text-sm font-medium">
-                                <span>VAT ({settings.taxPercentage || 5}%):</span>
+                                <span>VAT ({order.taxPercentage ?? settings.taxPercentage ?? 5}%):</span>
                                 <span className="text-slate-700 font-bold">+{currency}{parseFloat(order.taxAmount || 0).toFixed(2)}</span>
                             </div>
 

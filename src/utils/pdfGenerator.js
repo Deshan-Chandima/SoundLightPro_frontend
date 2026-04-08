@@ -405,7 +405,7 @@ export const generateInvoicePDF = (order, settings, docType = null, currentUser 
         }
 
         currentY += 7;
-        doc.text(`VAT (${safeSettings.taxPercentage || 5}%):`, leftX, currentY);
+        doc.text(`VAT (${order.taxPercentage ?? safeSettings.taxPercentage ?? 5}%):`, leftX, currentY);
         doc.text(`+${currency}${parseFloat(order.taxAmount || 0).toFixed(2)}`, 190, currentY, { align: 'right' });
 
         if (!isQuotation) {
